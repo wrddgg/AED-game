@@ -1,0 +1,16 @@
+{
+  "scenario_id": "subway",
+  "name": "地铁急救",
+  "description": "在地铁站发现有人倒地，你需要判断情况并找到AED进行急救。",
+  "entry_story_id": "subway_story",
+  "background": "subway_station",
+  "music": "tension_bgm",
+  "initial_variables": {
+    "confidence": 50,
+    "knowledge": 30,
+    "time_pressure": 0
+  },
+  "medical_config_id": "standard_aed",
+  "maze_config_id": "subway_maze",
+  "difficulty": "normal"
+}

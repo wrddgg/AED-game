@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual Environment
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Kivy
+.kivy/
+
+# Runtime data
+data/saves/*.json
+data/history/*.json
+data/cache/*.json
+data/cache/*.log
+!data/saves/.gitkeep
+!data/history/.gitkeep
+!data/cache/.gitkeep
+
+# Screenshots
+screenshot.png
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Fonts (too large for git push via proxy, keep locally)
+assets/fonts/*.ttf
+assets/fonts/*.ttc
+assets/fonts/*.otf
+!assets/fonts/.gitkeep
+
+# Build
+android/
+bin/

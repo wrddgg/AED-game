@@ -1,0 +1,64 @@
+{
+  "topics": [
+    {
+      "topic_id": "scene_intro",
+      "title": "场景说明",
+      "content": "你将面对一个突发的急救场景。保持冷静，快速判断，正确行动是救人的关键。",
+      "related_topics": ["first_response", "cpr_guide"]
+    },
+    {
+      "topic_id": "first_response",
+      "title": "第一反应",
+      "content": "发现有人倒地时：1.确认现场安全 2.判断意识（轻拍双肩）3.呼救并拨打120 4.检查呼吸",
+      "related_topics": ["call_120", "check_patient"]
+    },
+    {
+      "topic_id": "call_120",
+      "title": "拨打120",
+      "content": "拨打120时需说清：地点、人数、伤情、是否意识清醒、是否呼吸。不要先挂电话。",
+      "related_topics": ["first_response"]
+    },
+    {
+      "topic_id": "check_patient",
+      "title": "检查病人",
+      "content": "轻拍病人双肩，大声呼唤。如无反应，立即检查呼吸（观察胸部5-10秒）。",
+      "related_topics": ["cpr_decision", "cpr_guide"]
+    },
+    {
+      "topic_id": "cpr_decision",
+      "title": "CPR决策",
+      "content": "如病人无意识无呼吸，立即开始CPR。按压位置：胸骨中下段。频率：100-120次/分。深度：5-6cm。",
+      "related_topics": ["cpr_guide", "find_aed"]
+    },
+    {
+      "topic_id": "cpr_guide",
+      "title": "CPR操作指南",
+      "content": "30次按压+2次人工呼吸为一个循环。按压时要让胸廓充分回弹。持续CPR直到AED到达或急救人员接手。",
+      "related_topics": ["aed_guide"]
+    },
+    {
+      "topic_id": "find_aed",
+      "title": "寻找AED",
+      "content": "AED通常放置在显眼位置（入口、电梯旁等），有绿色标识。找到后立即开机，按语音提示操作。",
+      "related_topics": ["aed_guide"]
+    },
+    {
+      "topic_id": "aed_guide",
+      "title": "AED使用指南",
+      "content": "1.开机 2.贴电极片 3.按提示分析心率 4.如建议除颤，确保无人触碰病人后按放电键 5.立即继续CPR",
+      "related_topics": ["cpr_guide"]
+    },
+    {
+      "topic_id": "hesitation_warning",
+      "title": "犹豫的代价",
+      "content": "心脏骤停后，每延迟1分钟CPR，生存率下降7-10%。黄金4分钟内开始CPR，生存率可达50%以上。",
+      "related_topics": ["cpr_decision"]
+    },
+    {
+      "topic_id": "wait_warning",
+      "title": "不能等",
+      "content": "120到达通常需要8-15分钟。对于心脏骤停，等待意味着几乎零生存率。旁观者CPR+AED是唯一的希望。",
+      "related_topics": ["cpr_decision"]
+    }
+  ]
+}

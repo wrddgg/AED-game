@@ -1,0 +1,382 @@
+{
+  "graph_id": "subway_story",
+  "start_node": "node_01",
+  "variables": {
+    "confidence": 50,
+    "knowledge": 30,
+    "time_pressure": 0,
+    "called_120": false,
+    "found_aed": false,
+    "started_cpr": false
+  },
+  "global_conditions": [],
+  "end_nodes": ["end_good", "end_bad", "end_partial"],
+  "nodes": {
+    "node_01": {
+      "node_id": "node_01",
+      "type": "video",
+      "title": "地铁站突发",
+      "text": "你正在地铁站候车，突然看到前方有人倒地不起...",
+      "video": "subway_intro",
+      "audio": "crowd_ambient",
+      "background": "subway_station",
+      "duration": 10,
+      "actions": [
+        {"type": "add_var", "key": "time_pressure", "value": 5}
+      ],
+      "exit_actions": [],
+      "conditions": [],
+      "next_node": "node_02",
+      "failure_node": "",
+      "help_topic": "scene_intro",
+      "tags": ["intro", "subway"]
+    },
+    "node_02": {
+      "node_id": "node_02",
+      "type": "choice",
+      "title": "第一反应",
+      "text": "你看到有人倒地，你的第一反应是？",
+      "video": "",
+      "animation": "person_falling",
+      "audio": "crowd_panicking",
+      "background": "subway_station",
+      "duration": 30,
+      "choices": [
+        {
+          "choice_id": "c02_a",
+          "text": "立即上前查看情况",
+          "next_node": "node_03a",
+          "conditions": [],
+          "effects": [
+            {"type": "add_var", "key": "confidence", "value": 10}
+          ],
+          "is_correct": true,
+          "feedback_text": "你迅速反应，这是正确的第一步！"
+        },
+        {
+          "choice_id": "c02_b",
+          "text": "先拨打120急救电话",
+          "next_node": "node_03b",
+          "conditions": [],
+          "effects": [
+            {"type": "set_flag", "key": "called_120", "value": true},
+            {"type": "add_var", "key": "knowledge", "value": 5}
+          ],
+          "is_correct": true,
+          "feedback_text": "拨打120也很重要，但应同时有人查看病人！"
+        },
+        {
+          "choice_id": "c02_c",
+          "text": "犹豫观望，等别人先行动",
+          "next_node": "node_03c",
+          "conditions": [],
+          "effects": [
+            {"type": "sub_var", "key": "confidence", "value": 10},
+            {"type": "add_var", "key": "time_pressure", "value": 15}
+          ],
+          "is_correct": false,
+          "feedback_text": "每一秒都很宝贵，犹豫会耽误最佳救治时机！"
+        }
+      ],
+      "actions": [],
+      "exit_actions": [],
+      "conditions": [],
+      "next_node": "",
+      "failure_node": "node_03c",
+      "help_topic": "first_response",
+      "tags": ["choice", "critical"]
+    },
+    "node_03a": {
+      "node_id": "node_03a",
+      "type": "text",
+      "title": "查看病人",
+      "text": "你快步走到病人身边，发现他意识丧失，没有呼吸。这是一个心脏骤停的紧急情况！",
+      "video": "",
+      "animation": "",
+      "audio": "heartbeat_slow",
+      "background": "subway_station_close",
+      "duration": 0,
+      "actions": [
+        {"type": "add_var", "key": "confidence", "value": 5},
+        {"type": "add_var", "key": "time_pressure", "value": 10}
+      ],
+      "exit_actions": [],
+      "conditions": [],
+      "next_node": "node_04",
+      "failure_node": "",
+      "help_topic": "check_patient",
+      "tags": ["medical", "assessment"]
+    },
+    "node_03b": {
+      "node_id": "node_03b",
+      "type": "text",
+      "title": "拨打120",
+      "text": "你拨打了120，接线员询问病人状况。你需要尽快查看病人！",
+      "video": "",
+      "animation": "phone_calling",
+      "audio": "phone_dial",
+      "background": "subway_station",
+      "duration": 0,
+      "actions": [
+        {"type": "set_flag", "key": "called_120", "value": true}
+      ],
+      "exit_actions": [],
+      "conditions": [],
+      "next_node": "node_04",
+      "failure_node": "",
+      "help_topic": "call_120",
+      "tags": ["medical", "communication"]
+    },
+    "node_03c": {
+      "node_id": "node_03c",
+      "type": "text",
+      "title": "犹豫观望",
+      "text": "你犹豫了一会儿，周围人也在观望。宝贵的时间在流逝...",
+      "video": "",
+      "animation": "",
+      "audio": "crowd_murmur",
+      "background": "subway_station",
+      "duration": 0,
+      "actions": [
+        {"type": "add_var", "key": "time_pressure", "value": 20},
+        {"type": "sub_var", "key": "confidence", "value": 5}
+      ],
+      "exit_actions": [],
+      "conditions": [],
+      "next_node": "node_04",
+      "failure_node": "",
+      "help_topic": "hesitation_warning",
+      "tags": ["warning"]
+    },
+    "node_04": {
+      "node_id": "node_04",
+      "type": "choice",
+      "title": "急救决策",
+      "text": "病人已无意识无呼吸，你需要做出关键决定：",
+      "video": "",
+      "animation": "unconscious_person",
+      "audio": "",
+      "background": "subway_station_close",
+      "duration": 20,
+      "choices": [
+        {
+          "choice_id": "c04_a",
+          "text": "立即开始心肺复苏(CPR)",
+          "next_node": "node_05_cpr",
+          "conditions": [],
+          "effects": [
+            {"type": "set_flag", "key": "started_cpr", "value": true},
+            {"type": "add_var", "key": "confidence", "value": 15},
+            {"type": "add_var", "key": "knowledge", "value": 10}
+          ],
+          "is_correct": true,
+          "feedback_text": "CPR是心脏骤停最关键的急救措施！"
+        },
+        {
+          "choice_id": "c04_b",
+          "text": "去找AED自动体外除颤器",
+          "next_node": "node_05_aed",
+          "conditions": [],
+          "effects": [
+            {"type": "add_var", "key": "knowledge", "value": 10}
+          ],
+          "is_correct": true,
+          "feedback_text": "寻找AED也是正确选择，但应让人同时做CPR！"
+        },
+        {
+          "choice_id": "c04_c",
+          "text": "等待专业救援到来",
+          "next_node": "node_05_wait",
+          "conditions": [],
+          "effects": [
+            {"type": "add_var", "key": "time_pressure", "value": 30},
+            {"type": "sub_var", "key": "confidence", "value": 15}
+          ],
+          "is_correct": false,
+          "feedback_text": "心脏骤停4-6分钟后脑细胞就会开始死亡，不能等！"
+        }
+      ],
+      "actions": [],
+      "exit_actions": [],
+      "conditions": [],
+      "next_node": "",
+      "failure_node": "node_05_wait",
+      "help_topic": "cpr_decision",
+      "tags": ["choice", "critical", "medical"]
+    },
+    "node_05_cpr": {
+      "node_id": "node_05_cpr",
+      "type": "video",
+      "title": "心肺复苏",
+      "text": "你开始进行心肺复苏，按照30:2的比例进行胸外按压和人工呼吸。",
+      "video": "cpr_demo",
+      "animation": "",
+      "audio": "cpr_rhythm",
+      "background": "",
+      "duration": 15,
+      "actions": [
+        {"type": "set_flag", "key": "started_cpr", "value": true},
+        {"type": "add_var", "key": "confidence", "value": 10}
+      ],
+      "exit_actions": [],
+      "conditions": [],
+      "next_node": "node_06",
+      "failure_node": "",
+      "help_topic": "cpr_guide",
+      "tags": ["medical", "cpr"]
+    },
+    "node_05_aed": {
+      "node_id": "node_05_aed",
+      "type": "minigame",
+      "title": "寻找AED",
+      "text": "你需要尽快找到附近的AED设备！",
+      "video": "",
+      "animation": "",
+      "audio": "urgent_search",
+      "background": "subway_station",
+      "duration": 0,
+      "actions": [],
+      "exit_actions": [],
+      "conditions": [],
+      "next_node": "node_06",
+      "failure_node": "node_05_aed_fail",
+      "help_topic": "find_aed",
+      "tags": ["minigame", "aed"]
+    },
+    "node_05_aed_fail": {
+      "node_id": "node_05_aed_fail",
+      "type": "text",
+      "title": "未找到AED",
+      "text": "你没有在规定时间内找到AED，时间又浪费了...",
+      "video": "",
+      "animation": "",
+      "audio": "failure_sting",
+      "background": "",
+      "duration": 0,
+      "actions": [
+        {"type": "add_var", "key": "time_pressure", "value": 25},
+        {"type": "sub_var", "key": "confidence", "value": 10}
+      ],
+      "exit_actions": [],
+      "conditions": [],
+      "next_node": "node_06",
+      "failure_node": "",
+      "help_topic": "",
+      "tags": ["failure"]
+    },
+    "node_05_wait": {
+      "node_id": "node_05_wait",
+      "type": "text",
+      "title": "等待中",
+      "text": "你选择等待专业救援。时间一分一秒地过去，病人的情况在恶化...",
+      "video": "",
+      "animation": "time_passing",
+      "audio": "clock_ticking",
+      "background": "",
+      "duration": 0,
+      "actions": [
+        {"type": "add_var", "key": "time_pressure", "value": 40}
+      ],
+      "exit_actions": [],
+      "conditions": [],
+      "next_node": "node_06",
+      "failure_node": "",
+      "help_topic": "wait_warning",
+      "tags": ["warning"]
+    },
+    "node_06": {
+      "node_id": "node_06",
+      "type": "branch",
+      "title": "结局判定",
+      "text": "",
+      "video": "",
+      "animation": "",
+      "audio": "",
+      "background": "",
+      "duration": 0,
+      "actions": [],
+      "exit_actions": [],
+      "conditions": [],
+      "next_node": "end_good",
+      "failure_node": "end_bad",
+      "help_topic": "",
+      "tags": ["branch"],
+      "branch_conditions": [
+        {
+          "conditions": [
+            {"type": "var_compare", "key": "confidence", "operator": "gte", "value": 60},
+            {"type": "flag_set", "key": "started_cpr"}
+          ],
+          "next_node": "end_good"
+        },
+        {
+          "conditions": [
+            {"type": "var_compare", "key": "time_pressure", "operator": "gte", "value": 50}
+          ],
+          "next_node": "end_bad"
+        }
+      ],
+      "default_node": "end_partial"
+    },
+    "end_good": {
+      "node_id": "end_good",
+      "type": "end",
+      "title": "完美营救！",
+      "text": "你迅速而正确地完成了急救流程，病人恢复了心跳！120急救人员赶到后接手，你拯救了一条生命！",
+      "video": "good_ending",
+      "animation": "heartbeat_normal",
+      "audio": "victory_music",
+      "background": "hospital_scene",
+      "duration": 0,
+      "actions": [
+        {"type": "write_record", "key": "ending", "value": "good"}
+      ],
+      "exit_actions": [],
+      "conditions": [],
+      "next_node": "",
+      "failure_node": "",
+      "help_topic": "",
+      "tags": ["ending", "good"]
+    },
+    "end_bad": {
+      "node_id": "end_bad",
+      "type": "end",
+      "title": "遗憾结局",
+      "text": "由于反应迟缓和决策失误，最佳救治时机已经错过。120赶到时，病人已无力回天...",
+      "video": "bad_ending",
+      "animation": "heartbeat_flatline",
+      "audio": "sad_music",
+      "background": "",
+      "duration": 0,
+      "actions": [
+        {"type": "write_record", "key": "ending", "value": "bad"}
+      ],
+      "exit_actions": [],
+      "conditions": [],
+      "next_node": "",
+      "failure_node": "",
+      "help_topic": "",
+      "tags": ["ending", "bad"]
+    },
+    "end_partial": {
+      "node_id": "end_partial",
+      "type": "end",
+      "title": "尽力而为",
+      "text": "你做了一些正确的决定，但也有犹豫和失误。病人被送医抢救，情况不太乐观，但还有希望...",
+      "video": "",
+      "animation": "ambulance_leaving",
+      "audio": "ambulance_siren",
+      "background": "",
+      "duration": 0,
+      "actions": [
+        {"type": "write_record", "key": "ending", "value": "partial"}
+      ],
+      "exit_actions": [],
+      "conditions": [],
+      "next_node": "",
+      "failure_node": "",
+      "help_topic": "",
+      "tags": ["ending", "partial"]
+    }
+  }
+}
