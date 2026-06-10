@@ -1,0 +1,1343 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>生命守护者 — 序幕 & 第一章</title>
+<style>
+/* ========== GLOBAL RESET & BASE ========== */
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  background:#000;
+  color:#fff;
+  font-family:"Noto Serif SC","Source Han Serif SC","SimSun",serif;
+  overflow:hidden;
+  width:100vw;height:100vh;
+  user-select:none;
+  -webkit-user-select:none;
+}
+
+/* ========== MAIN CANVAS ========== */
+#screen{
+  position:relative;
+  width:100vw;height:100vh;
+  overflow:hidden;
+}
+
+/* ---------- Image area ---------- */
+.image-layer{
+  position:absolute;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:min(90vw, 1600px);
+  height:min(80vh, 900px);
+  background:#0a0a0a;
+  border:1px solid #1a1a1a;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  transition:opacity .8s;
+}
+.image-layer .placeholder{
+  width:100%;height:100%;
+  background:radial-gradient(ellipse at center, #1a1a1a 0%, #050505 70%);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  color:#2a2a2a;
+  font-size:14px;
+  letter-spacing:.2em;
+}
+.image-layer .placeholder .icon{font-size:48px;margin-bottom:16px;opacity:.4;}
+.image-layer .placeholder .label{opacity:.5;}
+
+/* ========== NARRATOR PANEL - 左中，旁白累积 ========== */
+.narrator-panel{
+  position:absolute;
+  left:6vw;
+  top:50%;
+  transform:translateY(-50%);
+  width:42vw;
+  max-width:700px;
+  max-height:70vh;
+  overflow-y:auto;
+  z-index:10;
+  pointer-events:none;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  padding:20px 24px;
+  /* 半透明背景 */
+  background:rgba(0,0,0,.35);
+  border-left:2px solid rgba(245,200,66,.25);
+  border-radius:0 6px 6px 0;
+  /* 隐藏滚动条 */
+  scrollbar-width:none;
+  -ms-overflow-style:none;
+}
+.narrator-panel::-webkit-scrollbar{display:none;}
+.narrator-panel .subtitle-line{
+  font-size:38px;
+  line-height:1.5;
+  letter-spacing:.08em;
+  text-align:left;
+  color:#d0d0d0;
+  font-style:italic;
+  min-height:auto;
+  margin-bottom:2px;
+  animation:lineFadeIn .4s ease-out;
+}
+@keyframes lineFadeIn{
+  from{opacity:0;transform:translateY(8px);}
+  to{opacity:1;transform:translateY(0);}
+}
+.narrator-panel .subtitle-line .char{opacity:0;transition:opacity .035s;}
+.narrator-panel .subtitle-line .char.show{opacity:1;}
+.narrator-panel .subtitle-line .char.hl{
+  color:#f5c842;
+  font-weight:700;
+  text-shadow:0 0 10px rgba(245,200,66,.5);
+}
+
+/* ========== SUBTITLE PANEL - 中底，字幕固定 ========== */
+.subtitle-panel{
+  position:absolute;
+  bottom:6vh;
+  left:50%;
+  transform:translateX(-50%);
+  width:min(80vw,1000px);
+  z-index:10;
+  pointer-events:none;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:6px;
+  padding:20px 36px 24px;
+  background:linear-gradient(transparent, rgba(0,0,0,.8) 35%);
+  border-radius:4px;
+  min-height:60px;
+}
+.subtitle-panel .subtitle-line{
+  font-size:33px;
+  line-height:1.6;
+  letter-spacing:.05em;
+  text-align:center;
+  min-height:auto;
+}
+.subtitle-panel .subtitle-line .char{opacity:0;transition:opacity .04s;}
+.subtitle-panel .subtitle-line .char.show{opacity:1;}
+.subtitle-panel .subtitle-line .char.hl{
+  color:#f5c842;
+  font-weight:700;
+  text-shadow:0 0 8px rgba(245,200,66,.5);
+}
+
+/* ---------- Speaker tag (in subtitle panel) ---------- */
+.subtitle-panel .speaker-tag{
+  display:inline-block;
+  font-size:16px;
+  color:#f5c842;
+  border:1px solid rgba(245,200,66,.4);
+  padding:3px 14px;
+  border-radius:3px;
+  margin-right:12px;
+  letter-spacing:.12em;
+  vertical-align:middle;
+}
+
+/* ---------- Note style (in subtitle panel) ---------- */
+.subtitle-panel .note-line{
+  font-size:18px;
+  color:#777;
+  font-style:italic;
+  letter-spacing:.04em;
+  text-align:center;
+  margin-top:2px;
+}
+.subtitle-panel .note-line .char{opacity:0;transition:opacity .03s;}
+.subtitle-panel .note-line .char.show{opacity:1;}
+.subtitle-panel .note-line .char.hl{
+  color:#f5c842;
+  font-weight:700;
+  text-shadow:0 0 6px rgba(245,200,66,.4);
+}
+
+/* ========== CHOICE OVERLAY ========== */
+.choice-overlay{
+  position:absolute;
+  bottom:24vh;
+  left:50%;
+  transform:translateX(-50%);
+  z-index:20;
+  display:none;
+  flex-direction:column;
+  gap:14px;
+  width:min(600px,85vw);
+}
+.choice-overlay.active{display:flex;}
+
+.choice-btn{
+  background:rgba(20,20,20,.92);
+  border:1px solid rgba(255,255,255,.15);
+  color:#ccc;
+  padding:16px 24px;
+  font-size:17px;
+  cursor:pointer;
+  text-align:left;
+  letter-spacing:.04em;
+  transition:all .25s;
+  position:relative;
+  font-family:inherit;
+}
+.choice-btn:hover{
+  border-color:#f5c842;
+  color:#fff;
+  background:rgba(40,40,40,.95);
+  padding-left:32px;
+}
+.choice-btn::before{
+  content:"▸";
+  position:absolute;
+  left:14px;
+  color:#f5c842;
+  opacity:0;
+  transition:all .25s;
+}
+.choice-btn:hover::before{opacity:1;}
+.choice-btn .key-label{
+  color:#f5c842;
+  font-weight:700;
+  margin-right:6px;
+}
+
+/* ========== SCENE LABEL ========== */
+.scene-label{
+  position:absolute;
+  top:24px;left:60px;
+  font-size:11px;
+  letter-spacing:.25em;
+  color:rgba(255,255,255,.25);
+  z-index:15;
+  text-transform:uppercase;
+}
+
+/* ========== PROGRESS BAR ========== */
+.progress-bar{
+  position:absolute;
+  bottom:0;left:0;height:2px;
+  background:#f5c842;
+  z-index:30;
+  transition:width .3s;
+}
+
+/* ========== NAVIGATION HINT ========== */
+.nav-hint{
+  position:absolute;
+  bottom:30px;right:60px;
+  font-size:12px;
+  color:rgba(255,255,255,.25);
+  letter-spacing:.1em;
+  z-index:15;
+  animation:pulse 2s infinite;
+}
+@keyframes pulse{0%,100%{opacity:.2;}50%{opacity:.5;}}
+
+/* ========== SCENE TRANSITIONS ========== */
+.fade-out{animation:fadeOut .6s forwards;}
+.fade-in{animation:fadeIn .6s forwards;}
+@keyframes fadeOut{to{opacity:0;}}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+
+/* ========== RAIN EFFECT (for rain scenes) ========== */
+.rain-container{
+  position:absolute;top:0;left:0;width:100%;height:100%;
+  pointer-events:none;z-index:5;overflow:hidden;
+}
+.rain-drop{
+  position:absolute;
+  width:1px;height:20px;
+  background:linear-gradient(transparent,rgba(180,200,220,.6));
+  animation:rainFall linear infinite;
+}
+@keyframes rainFall{
+  0%{transform:translateY(-120px);opacity:0;}
+  10%{opacity:1;}
+  90%{opacity:1;}
+  100%{transform:translateY(105vh);opacity:0;}
+}
+
+/* ========== CAMERA SHAKE ========== */
+.shake{animation:shake .3s ease-in-out;}
+@keyframes shake{
+  0%,100%{transform:translate(-50%,-50%);}
+  25%{transform:translate(calc(-50% + 4px), calc(-50% - 3px));}
+  50%{transform:translate(calc(-50% - 3px), calc(-50% + 2px));}
+  75%{transform:translate(calc(-50% + 2px), calc(-50% + 4px));}
+}
+
+/* ========== VIGNETTE (tunnel vision) ========== */
+.vignette{
+  position:absolute;top:0;left:0;width:100%;height:100%;
+  pointer-events:none;z-index:8;
+  box-shadow:inset 0 0 180px 60px rgba(0,0,0,.8);
+  border-radius:0;
+}
+
+/* ========== CPR FLASH ========== */
+.cpr-flash{
+  position:absolute;top:0;left:0;width:100%;height:100%;
+  background:rgba(255,255,255,.04);
+  pointer-events:none;z-index:6;
+  animation:cprPulse .6s infinite;
+}
+@keyframes cprPulse{0%,100%{opacity:0;}50%{opacity:1;}}
+
+/* ========== YELLOW DOT PULSE ========== */
+.breathing-dot{
+  width:20px;height:20px;
+  background:#f5c842;
+  border-radius:50%;
+  position:absolute;
+  box-shadow:0 0 30px #f5c842, 0 0 60px rgba(245,200,66,.4);
+  animation:breathe 2s ease-in-out infinite;
+}
+@keyframes breathe{
+  0%,100%{transform:scale(1);opacity:.8;}
+  50%{transform:scale(1.8);opacity:1;}
+}
+
+/* ========== RESPONSIVE ========== */
+@media(max-width:768px){
+  .narrator-panel{
+    left:3vw;width:48vw;
+    padding:12px 14px;
+    max-height:55vh;
+  }
+  .narrator-panel .subtitle-line{font-size:22px;}
+  .subtitle-panel{
+    width:90vw;
+    padding:14px 20px 18px;
+  }
+  .subtitle-panel .subtitle-line{font-size:20px;}
+  .subtitle-panel .speaker-tag{font-size:12px;padding:2px 8px;}
+  .subtitle-panel .note-line{font-size:14px;}
+  .choice-overlay{bottom:20vh;}
+  .choice-btn{font-size:15px;padding:14px 18px;}
+  .scene-label{top:12px;left:20px;font-size:10px;}
+  .nav-hint{bottom:70px;right:20px;}
+}
+</style>
+</head>
+<body>
+
+<div id="screen">
+  <!-- Image Layer -->
+  <div class="image-layer" id="imageLayer">
+    <div class="placeholder" id="placeholder">
+      <div class="icon">🎬</div>
+      <div class="label">生命守护者</div>
+    </div>
+  </div>
+
+  <!-- Rain Container (hidden by default) -->
+  <div class="rain-container" id="rainContainer" style="display:none;"></div>
+
+  <!-- Narrator Panel - 左中，旁白累积 -->
+  <div class="narrator-panel" id="narratorPanel"></div>
+
+  <!-- Subtitle Panel - 中底，字幕固定 -->
+  <div class="subtitle-panel" id="subtitlePanel"></div>
+
+  <!-- Choice Overlay -->
+  <div class="choice-overlay" id="choiceOverlay"></div>
+
+  <!-- Scene Label -->
+  <div class="scene-label" id="sceneLabel"></div>
+
+  <!-- Nav Hint -->
+  <div class="nav-hint" id="navHint">点击或按空格继续 ▸</div>
+
+  <!-- Progress -->
+  <div class="progress-bar" id="progressBar" style="width:0%;"></div>
+</div>
+
+<script>
+// ==================== DATA: ALL SCENES ====================
+const scenes = [
+
+// ========== 序幕 ==========
+{
+  id:"prologue_factory",
+  label:"序幕 · 抹不掉的浓烟",
+  imageLabel:"工厂火灾现场 — 铁门特写",
+  type:"narration",
+  rain:false,
+  lines:[
+    {text:"三年前，他在另一场火里退后了一步。",hl:["三年前","退后了一步"]},
+    {text:"那个人的脸，他到现在还记得。",hl:["到现在还记得"]},
+    {text:"保安拦着他说：",hl:["保安拦着"]},
+    {text:"「小伙子别逞能，进去了连你也出不来！」",hl:["进去了连你也出不来"]},
+    {text:"他听了劝，退回去了。",hl:["退回去了"]},
+    {text:"结果，里面的人没出来。",hl:["没出来"]},
+    {text:"这件事他从没对任何人提起，",hl:["从没对任何人提起"]},
+    {text:"但它变成了焊在心里的铁钉。",hl:["焊在心里的铁钉"]}
+  ]
+},
+
+{
+  id:"prologue_hands",
+  label:"序幕 · 雨夜的油门",
+  imageLabel:"外卖骑手的手 — 暴雨中紧握油门",
+  type:"narration",
+  rain:true,
+  lines:[
+    {text:"后来他换了很多工作，也换了城市。",hl:["换了很多工作","换了城市"]},
+    {text:"来临江三年，送外卖是第7份工作。",hl:["第7份工作"]},
+    {text:"但他没换掉一个习惯——",hl:["没换掉一个习惯"]},
+    {text:"每次路过医院，他都会多看一眼急诊科的灯。",hl:["多看一眼急诊科的灯"]},
+    {text:"他不是英雄，",hl:["不是英雄"]},
+    {text:"他只是一个背负着「上次没蹲下去」的记忆、",hl:["上次没蹲下去"]},
+    {text:"这次想要不一样的人。",hl:["想要不一样"]}
+  ]
+},
+
+{
+  id:"prologue_phone",
+  label:"序幕 · 剧本的选择",
+  imageLabel:"手机屏幕 — 超时警告 vs CPR科普文章",
+  type:"narration",
+  rain:true,
+  lines:[
+    {text:"今天，他只是一个想把最后一份外卖准时送到、",hl:["准时送到"]},
+    {text:"不被扣钱的普通人。",hl:["普通人"]},
+    {text:"但城市给每个人的剧本，有时候不止一份。",hl:["不止一份"]}
+  ]
+},
+
+{
+  id:"prologue_rain",
+  label:"序幕 · 雨夜的圆圈",
+  imageLabel:"地铁口远景 — 人群围成圆圈",
+  type:"narration",
+  rain:true,
+  lines:[
+    {text:"21:17，台风银杏登陆第三个小时。",hl:["21:17","台风银杏"]},
+    {text:"临江市120接警量超过平时的3倍。",hl:["超过平时的3倍"]},
+    {text:"倒计时，开始。",hl:["倒计时","开始"]}
+  ]
+},
+
+// ========== 第一章 · 选择点1 ==========
+{
+  id:"choice_1",
+  label:"第一章 · 圆心",
+  imageLabel:"王远急刹车 — 头盔POV视角",
+  type:"narration",
+  rain:true,
+  lines:[
+    {text:"王远猛地捏死刹车，电动车在湿滑的地面上甩尾停下。",hl:["猛地捏死刹车"]},
+    {text:"他看着那个围成圆圈的人群，",hl:["围成圆圈"]},
+    {text:"三年前那场大火的浓烟仿佛又在眼前升起。",hl:["又在眼前升起"]},
+    {text:"他必须做出选择。",hl:["必须做出选择"]}
+  ],
+  choice:{
+    prompt:"★ 选择点 1：面对眼前的困境，第一反应是？",
+    options:[
+      {key:"A",label:"先挤进去清场",next:"enter_circle"},
+      {key:"B",label:"先打开手机录像",next:"film_first"}
+    ]
+  }
+},
+
+// ========== 分支A · 挤进人群 ==========
+{
+  id:"enter_circle",
+  label:"分支A · 直接救人",
+  imageLabel:"王远推开人群 — 双膝跪在积水泥地上",
+  type:"dialogue",
+  speaker:"王远",
+  rain:true,
+  lines:[
+    {text:"让让！别堵着！给他留出空间，别挡急救！",hl:["留出空间","别挡急救"]},
+    {text:"上次在火里，我听了话，退了。",hl:["听了话","退了"]},
+    {text:"这次，我的膝盖先着地。",hl:["膝盖先着地"]},
+    {text:"（老人的脸灰白，嘴唇发绀发紫……）",hl:["灰白","发绀发紫"]}
+  ],
+  next:"check_response"
+},
+
+// ========== 分支B · 先录像 ==========
+{
+  id:"film_first",
+  label:"分支B · 先录像自保",
+  imageLabel:"手机屏幕POV — 晃动镜头拍摄围观人群",
+  type:"dialogue",
+  speaker:"王远",
+  rain:true,
+  lines:[
+    {text:"（高举手机，一边拍一边往里挤……）",hl:["高举手机"]},
+    {text:"旁观者A：拍下来也好，至少把时间线留住。",hl:["时间线留住"]},
+    {text:"我不是在拍什么证据。",hl:["不是证据"]},
+    {text:"我是怕……怕自己又变成三年前那个站在门外看的人。",hl:["站在门外看的人"]},
+    {text:"有个镜头顶着，我就退不回去了。",hl:["退不回去"]}
+  ],
+  next:"check_response"
+},
+
+// ========== 汇合 · 检查反应 ==========
+{
+  id:"check_response",
+  label:"汇合 · 死神的叹息",
+  imageLabel:"王远探鼻息 — 老人下颌突然古怪抽动",
+  type:"narration",
+  rain:true,
+  lines:[
+    {text:"王远把手探向老人的鼻翼，同时观察胸口。",hl:["探向鼻翼"]},
+    {text:"没有起伏，触感冰凉。",hl:["没有起伏","冰凉"]},
+    {text:"就在他准备放弃的那一秒，",hl:["准备放弃"]},
+    {text:"老人的下颌突然古怪地开合了一下，",hl:["古怪地开合"]},
+    {text:"发出一声像叹气一样的抽动——随后一片死寂。",hl:["叹气一样的抽动","死寂"]}
+  ],
+  next_dialogue:{
+    speaker:"林小雨",
+    text:"濒死叹息……应该按压。",
+    hl:["濒死叹息","应该按压"],
+    note:"声音小到连她自己都不敢听见，瞬间被暴雨吞没。"
+  },
+  choice:{
+    prompt:"★ 选择点 2：面对老人古怪的「抽动」，你的判断是？",
+    options:[
+      {key:"A",label:"按心脏骤停处理（宁可错判，不可错过）",next:"start_cpr"},
+      {key:"B",label:"再等等——可能在呼吸",next:"wait_breath"}
+    ]
+  }
+},
+
+// ========== 分支A · 开始按压 ==========
+{
+  id:"start_cpr",
+  label:"分支A · 果断行动",
+  imageLabel:"王远眼神一狠 — 扯开老人外衣露出胸口",
+  type:"dialogue",
+  speaker:"王远",
+  rain:true,
+  lines:[
+    {text:"宁可错判为骤停而按压，",hl:["宁可错判"]},
+    {text:"绝不可把濒死喘息当成正常呼吸！",hl:["绝不可","濒死喘息"]},
+    {text:"（一把扯开老人的外衣，暴露出胸口）",hl:["扯开外衣"]}
+  ],
+  next_narration:{
+    text:"林小雨在人群里惊呼一声——「对！应该按压！他看出来了！」但她依然没有勇气拨开人群。",
+    hl:["没有勇气拨开人群"]
+  },
+  next:"scam_whisper"
+},
+
+// ========== 分支B · 再等等 ==========
+{
+  id:"wait_breath",
+  label:"分支B · 错失的22秒",
+  imageLabel:"王远犹豫 — 老人嘴唇乌紫色如墨晕开",
+  type:"narration",
+  rain:true,
+  lines:[
+    {text:"王远犹豫了。万一人家只是顺了口气呢？",hl:["犹豫"]},
+    {text:"自己一掌拍下去把人按坏了怎么办？",hl:["把人按坏了"]},
+    {text:"他死死盯着老人，又等了二十多秒。",hl:["又等了二十多秒"]},
+    {text:"然而老人的抽动彻底消失，",hl:["彻底消失"]},
+    {text:"嘴唇的乌紫色像墨汁一样晕开。",hl:["乌紫色","墨汁一样晕开"]},
+    {text:"22秒。对一颗停跳的心，它不是一小段时间，",hl:["22秒","停跳的心"]},
+    {text:"是血氧从大脑退潮的声音。",hl:["血氧从大脑退潮"]}
+  ],
+  next:"scam_whisper"
+},
+
+// ========== 汇合 · 冷漠窃语 ==========
+{
+  id:"scam_whisper",
+  label:"汇合 · 冰冷的窃窃私语",
+  imageLabel:"仰视鱼眼 — 围观者墙包围王远",
+  type:"narration",
+  rain:true,
+  lines:[
+    {text:"雨越下越大。",hl:["越下越大"]},
+    {text:"周围的窃窃私语像潮水一样涌来：",hl:["窃窃私语"]},
+    {text:"「这小哥要干嘛？」",hl:["要干嘛"]},
+    {text:"「别碰啊，万一死你手里，倾家荡产！」",hl:["倾家荡产"]},
+    {text:"这些话像针一样扎在王远背上。",hl:["像针一样扎"]}
+  ],
+  choice:{
+    prompt:"★ 选择点 3：面对「讹人」恐惧，你如何利用现场资源？",
+    options:[
+      {key:"A",label:"边救边点名作证（将围观者拉入分工）",next:"name_witness"},
+      {key:"B",label:"先让人记录全景（留下时间线证据）",next:"crowd_film"}
+    ]
+  }
+},
+
+// ========== 分支A · 点名作证 ==========
+{
+  id:"name_witness",
+  label:"分支A · 打破冷漠的箭",
+  imageLabel:"王远猛然抬头 — 目光如鹰扫视人群",
+  type:"dialogue",
+  speaker:"王远",
+  rain:true,
+  lines:[
+    {text:"灰西装先生！就是你，请你帮个忙，",hl:["灰西装先生","就是你"]},
+    {text:"立刻打120，开免提！",hl:["打120","开免提"]}
+  ],
+  next_dialogue:{
+    speaker:"孙建国",
+    text:"啊？我？",
+    hl:["啊？我？"],
+    note:"手一抖，习惯了多一事不如少一事，但被当众点名，身体比脑子快。"
+  },
+  next_dialogue2:{
+    speaker:"王远",
+    text:"保安师傅！麻烦你马上去站里找AED，有就立刻拿过来！救命的！",
+    hl:["AED","立刻拿过来","救命的"]
+  },
+  next_narration:{
+    text:"马志国咬牙——「好！我这就去！」退伍军人的本能被唤醒，转头冲进暴雨中。",
+    hl:["退伍军人的本能"]
+  },
+  next_narration2:{
+    text:"王远看向林小雨——「白衬衫姑娘，请你帮我看着时间，也请你替我作证，我是路过救人！」",
+    hl:["替我作证","路过救人"]
+  },
+  next_narration3:{
+    text:"王远用一根无形的线，把围观的「看客」强行拉成了「同盟」。",
+    hl:["看客","同盟"]
+  },
+  next:"cpr_first_push"
+},
+
+// ========== 分支B · 路人录像 ==========
+{
+  id:"crowd_film",
+  label:"分支B · 碎掉的星星",
+  imageLabel:"无数手机高举 — 闪光灯如冰冷碎星",
+  type:"dialogue",
+  speaker:"王远",
+  rain:true,
+  lines:[
+    {text:"有没有人帮我留个全景！把倒地经过、谁在现场都拍清楚！",hl:["留个全景","拍清楚"]}
+  ],
+  next_narration:{
+    text:"围观者中立刻举起了五六部手机。有人对准老人倒地位置，也有人顺手推成直播。闪光灯在黑夜里像碎掉的星星。",
+    hl:["像碎掉的星星"]
+  },
+  next_narration2:{
+    text:"「这外卖小哥演的吧？」「真的假的，临江暴雨大秀吗？」「万一被讹上就搞笑了，支持小哥留证。」",
+    hl:["演的吧","大秀","留证"]
+  },
+  next_narration3:{
+    text:"留证本是为了固定时间线，但一旦有人推向公开传播，现场就从「互相证明」滑向「集体围观」。",
+    hl:["互相证明","集体围观"]
+  },
+  next:"cpr_first_push"
+},
+
+// ========== CPR · 第一下 ==========
+{
+  id:"cpr_first_push",
+  label:"核心 · 第一下按压",
+  imageLabel:"特写 — 掌根找准胸骨下半段，全身力量轰然下压",
+  type:"narration",
+  rain:true,
+  lines:[
+    {text:"掌根找准胸骨下半段，全身力量轰然下压。",hl:["胸骨下半段","轰然下压"]},
+    {text:"教科书上说按压深度5-6厘米。",hl:["5-6厘米"]},
+    {text:"但没有人告诉过他，真正压下去的手感，",hl:["真正压下去的手感"]},
+    {text:"不是医院的模拟橡胶人，",hl:["不是模拟橡胶人"]},
+    {text:"而是夹杂着骨骼抵抗的、沉重而脆弱的肉体。",hl:["骨骼抵抗","沉重而脆弱"]},
+    {text:"那篇文章他只看了十七秒，",hl:["只看了十七秒"]},
+    {text:"可这十七秒，此刻像一根绳子，拽着他的手不要停。",hl:["像一根绳子","不要停"]}
+  ],
+  next:"cpr_rhythm"
+},
+
+// ========== CPR · 节奏蒙太奇 ==========
+{
+  id:"cpr_rhythm",
+  label:"核心 · 节奏的牢笼",
+  imageLabel:"快速切变蒙太奇 — 汗水/青筋/嘴/鞋/空马路",
+  type:"narration",
+  rain:true,
+  cprFlash:true,
+  lines:[
+    {text:"01帧：咬紧牙关、汗水与雨水混合的脸。",hl:["咬紧牙关"]},
+    {text:"02帧：手背上暴起的青筋。",hl:["暴起的青筋"]},
+    {text:"03帧：老人随着按压无意识张开的嘴。",hl:["无意识张开的嘴"]},
+    {text:"04帧：围观者的鞋子，有人在悄悄后退。",hl:["悄悄后退"]},
+    {text:"05帧：高架桥下那条空荡荡的马路，120还没来。",hl:["空荡荡","120还没来"]}
+  ],
+  next:"cpr_fatigue"
+},
+
+// ========== CPR · 崩溃边缘 ==========
+{
+  id:"cpr_fatigue",
+  label:"核心 · 崩溃边缘",
+  imageLabel:"POV晕影 — 双臂剧烈颤抖，视野边缘发黑模糊",
+  type:"dialogue",
+  speaker:"王远",
+  rain:true,
+  vignette:true,
+  lines:[
+    {text:"我快撑不住了……",hl:["撑不住了"]},
+    {text:"不是因为什么高尚的英雄主义，",hl:["不是英雄主义"]},
+    {text:"是因为我不知道，如果我现在松手停下了，",hl:["松手停下"]},
+    {text:"这个圈子里，还有谁愿意蹲下来接替我？",hl:["还有谁愿意蹲下来"]}
+  ],
+  choice:{
+    prompt:"★ 选择点 4：体力耗尽，按压质量下降，你选择？",
+    options:[
+      {key:"A",label:"让路人接替（交托信任）",next:"let_others"},
+      {key:"B",label:"自己坚持到底（个人硬撑）",next:"keep_going"}
+    ]
+  }
+},
+
+// ========== 分支A · 路人接替 ==========
+{
+  id:"let_others",
+  label:"分支A · 把手交出去",
+  imageLabel:"年轻人接手 — 王远死死按住他的手腕纠正位置",
+  type:"dialogue",
+  speaker:"王远",
+  rain:true,
+  lines:[
+    {text:"兄弟！来帮一把！我数到三，你把手压在我手下面！",hl:["帮一把","数到三"]},
+    {text:"肩膀压上来，手臂打直，垂直往下压！别停，跟着我的数！",hl:["手臂打直","垂直往下压","别停"]}
+  ],
+  next_narration:{
+    text:"林小雨终于往前半步，盯着年轻路人的肩膀小声补了一句：「别抢，跟他的数。手臂别弯。」",
+    hl:["别抢","手臂别弯"]
+  },
+  next_narration2:{
+    text:"伸手不只是自己蹲下去。有时候，是把别人拉过来，教他们怎么一起蹲下去。",
+    hl:["把别人拉过来","一起蹲下去"]
+  },
+  next:"family_accuse"
+},
+
+// ========== 分支B · 自己坚持 ==========
+{
+  id:"keep_going",
+  label:"分支B · 孤独的硬撑",
+  imageLabel:"王远拒绝旁人 — 双臂开始弯曲，频率慢了下来",
+  type:"narration",
+  rain:true,
+  lines:[
+    {text:"王远摇了摇头，拒绝了旁人的询问。",hl:["拒绝"]},
+    {text:"他咬碎了牙，将全身的重量死死砸在老人的胸口上。",hl:["咬碎了牙"]},
+    {text:"由于体力透支，双臂开始弯曲，",hl:["体力透支","双臂弯曲"]},
+    {text:"按压频率慢了下来，深度也无法维持。",hl:["慢了下来","无法维持"]}
+  ],
+  next_narration2:{
+    text:"林小雨看出他的按压在变慢，手臂开始弯。她没有喊停，只把计时的声音放大了：二十秒……三十秒……四十秒……像是在替他数，也像是在替自己数。",
+    hl:["替他数","替自己数"]
+  },
+  next_narration3:{
+    text:"勇气有时候也是一种陷阱。盲目的坚守不一定是负责，也可能是一种无法放手信任他人的傲慢。",
+    hl:["勇气的陷阱","无法放手信任"]
+  },
+  next:"family_accuse"
+},
+
+// ========== 家属冲突 ==========
+{
+  id:"family_accuse",
+  label:"高潮 · 恐惧扭曲的面孔",
+  imageLabel:"赵雪梅揪住王远衣领 — 雨痕如锋利线条划过两人脸庞",
+  type:"dialogue",
+  speaker:"赵雪梅",
+  rain:true,
+  lines:[
+    {text:"你在干什么？！你是谁？！",hl:["你是谁"]},
+    {text:"你把我爸怎么了？！是不是你撞的他？！",hl:["是不是你撞的"]}
+  ],
+  next_narration:{
+    text:"（王远余光扫到老人左手腕上的红绳——赵雪梅腕上也有一根一样的。他突然明白，拉扯他的不是恶意，是一个女儿快要失去父亲时的恐惧。）",
+    hl:["红绳","快要失去父亲时的恐惧"]
+  },
+  choice:{
+    prompt:"★ 选择点 5：家属情绪失控并产生严重误会，你选择？",
+    options:[
+      {key:"A",label:"继续按压，让证人替自己说话",next:"kept_working"},
+      {key:"B",label:"停下来解释",next:"stop_explain"}
+    ]
+  }
+},
+
+// ========== 分支A · 顶住压力 ==========
+{
+  id:"kept_working",
+  label:"分支A · 比亲人更想让他活下去",
+  imageLabel:"王远用肩膀顶开赵雪梅 — 林小雨张开双臂拦住家属",
+  type:"dialogue",
+  speaker:"王远",
+  rain:true,
+  lines:[
+    {text:"大姐！别碰我！我在救他的命！",hl:["别碰我","救他的命"]}
+  ],
+  next_dialogue:{
+    speaker:"林小雨",
+    text:"大姐！我是护理实习生，我学过急救！我从刚开始就一直看着，这位大哥是路过救人的！你爸现在像是心脏骤停，最怕的就是按压断掉！",
+    hl:["护理实习生","路过救人","心脏骤停","按压断掉"]
+  },
+  next_dialogue2:{
+    speaker:"孙建国",
+    text:"对！120全程在听着呢，是我报的警！",
+    hl:["120全程在听","我报的警"]
+  },
+  next_narration:{
+    text:"赵雪梅僵在原地，手缓缓松开。她看着这个浑身是泥、拼命按压的陌生外卖员，突然意识到——在这个冰冷的雨夜，这个陌生人可能比她更想让她父亲活下去。",
+    hl:["这个陌生人可能比她更想让她父亲活下去"]
+  },
+  next:"aed_arrival"
+},
+
+// ========== 分支B · 停下解释 ==========
+{
+  id:"stop_explain",
+  label:"分支B · 致命的24秒",
+  imageLabel:"王远举起双手后退 — 老人胸口一片死寂",
+  type:"dialogue",
+  speaker:"王远",
+  rain:true,
+  lines:[
+    {text:"大姐，你冷静点！我不是肇事的人，",hl:["冷静点"]},
+    {text:"我只是个送外卖的，路过看到他倒地才过来帮忙的……",hl:["送外卖的","过来帮忙"]}
+  ],
+  next_narration:{
+    text:"赵雪梅死死盯着王远。他停下了——他为什么心虚？赵雪梅哭得更加撕心裂肺。",
+    hl:["他停下了","为什么心虚"]
+  },
+  next_narration2:{
+    text:"在他们争吵、解释的这24秒里，老人的胸口一片死寂，没有一个人去按压。那是生命流逝的声音。",
+    hl:["24秒","一片死寂","生命流逝的声音"]
+  },
+  next:"aed_arrival"
+},
+
+// ========== AED到场 ==========
+{
+  id:"aed_arrival",
+  label:"转机 · 机器接手前的几秒",
+  imageLabel:"马志国抱着AED冲回现场 — 大家为贴片让出空档",
+  type:"narration",
+  rain:true,
+  lines:[
+    {text:"马志国抱着AED冲回现场。",hl:["AED"]},
+    {text:"王远按调度员和AED语音提示拉开胸前衣物，",hl:["AED语音提示"]},
+    {text:"林小雨迅速擦去贴片区域最明显的雨水，",hl:["擦去雨水"]},
+    {text:"大家只为贴片动作让出最短空档。",hl:["最短空档"]},
+    {text:"这一段不是「机器来替代人」，",hl:["不是机器替代人"]},
+    {text:"而是现场第一次把零散的善意收束成准确的操作。",hl:["零散的善意","收束成准确的操作"]}
+  ],
+  next:"ambulance"
+},
+
+// ========== 救护车 ==========
+{
+  id:"ambulance",
+  label:"尾声 · 救护车到来",
+  imageLabel:"陈默医生带护士抬担架冲进人群 — 救护车呼啸而去",
+  type:"narration",
+  rain:true,
+  lines:[
+    {text:"120救护车刺耳的警笛声终于撕开雨幕。",hl:["撕开雨幕"]},
+    {text:"陈默医生带着护士抬着担架冲进人群，迅速接管了现场。",hl:["接管现场"]},
+    {text:"电击除颤、插管、抬上担架。救护车呼啸而去。",hl:["呼啸而去"]},
+    {text:"王远一个人站在空地上，暴雨冲刷着他衣服上的泥水。",hl:["一个人站在空地上"]},
+    {text:"他扶起倒在地上的电动车，看了看手机——",hl:["看了看手机"]},
+    {text:"外卖订单已经彻底超时，系统亮起了红色的扣款提示。",hl:["彻底超时","扣款提示"]}
+  ],
+  next:"aed_map"
+},
+
+// ========== AED地图 ==========
+{
+  id:"aed_map",
+  label:"尾声 · 城市AED地图",
+  imageLabel:"极简高科技全息地图 — 蓝光网格中一个黄点脉冲呼吸",
+  type:"narration",
+  rain:false,
+  aedMap:true,
+  lines:[
+    {text:"画面从冰冷的雨夜街景渐渐抽离，",hl:["渐渐抽离"]},
+    {text:"变成一幅极简风格的、散发着科技感蓝光的",hl:["科技感蓝光"]},
+    {text:"「临江市城市AED地图」。",hl:["城市AED地图"]},
+    {text:"一个光点亮了。",hl:["光点亮了"]},
+    {text:"但在这座城市的地图上，",hl:["这座城市"]},
+    {text:"还有整整十七个灰色空白区。",hl:["十七个灰色空白区"]},
+    {text:"在那些地方，最近的AED需要跑8分钟以上。",hl:["8分钟以上"]}
+  ],
+  next:"chapter2_transition"
+},
+
+// ========== 第二章过渡 ==========
+{
+  id:"chapter2_transition",
+  label:"待续",
+  imageLabel:"黑屏",
+  type:"narration",
+  rain:false,
+  lines:[
+    {text:"第二章 · 涟漪",hl:["第二章","涟漪"]},
+    {text:"七天后。",hl:["七天后"]}
+  ]
+}
+
+]; // end scenes
+
+// ==================== STATE ====================
+let currentSceneIdx = 0;
+let currentLineIdx = 0;
+let typingTimer = null;
+let isTyping = false;
+let userHasInteracted = false;
+
+// ==================== DOM REFS ====================
+const imageLayer = document.getElementById("imageLayer");
+const placeholder = document.getElementById("placeholder");
+const narratorPanel = document.getElementById("narratorPanel");
+const subtitlePanel = document.getElementById("subtitlePanel");
+const choiceOverlay = document.getElementById("choiceOverlay");
+const sceneLabel = document.getElementById("sceneLabel");
+const navHint = document.getElementById("navHint");
+const progressBar = document.getElementById("progressBar");
+const rainContainer = document.getElementById("rainContainer");
+const screen = document.getElementById("screen");
+
+// ==================== HELPERS ====================
+function clearNarrator(){
+  narratorPanel.innerHTML = "";
+}
+function clearSubtitles(){
+  subtitlePanel.innerHTML = "";
+}
+function clearAllText(){
+  clearNarrator();
+  clearSubtitles();
+}
+
+function clearChoices(){
+  choiceOverlay.innerHTML = "";
+  choiceOverlay.classList.remove("active");
+}
+
+function updateProgress(){
+  const pct = ((currentSceneIdx) / scenes.length) * 100;
+  progressBar.style.width = pct + "%";
+}
+
+// ==================== RAIN ====================
+let rainInterval = null;
+function startRain(){
+  rainContainer.style.display = "block";
+  rainContainer.innerHTML = "";
+  for(let i = 0; i < 80; i++){
+    const drop = document.createElement("div");
+    drop.className = "rain-drop";
+    drop.style.left = Math.random() * 100 + "%";
+    drop.style.animationDuration = (0.4 + Math.random() * 0.8) + "s";
+    drop.style.animationDelay = Math.random() * 1 + "s";
+    rainContainer.appendChild(drop);
+  }
+}
+function stopRain(){
+  rainContainer.style.display = "none";
+  rainContainer.innerHTML = "";
+}
+
+// ==================== AED MAP DOT ====================
+function showAedDot(){
+  const existing = document.querySelector(".breathing-dot");
+  if(existing) existing.remove();
+  const dot = document.createElement("div");
+  dot.className = "breathing-dot";
+  // Position near center-left (representing old district station)
+  dot.style.top = "55%";
+  dot.style.left = "42%";
+  imageLayer.appendChild(dot);
+}
+function removeAedDot(){
+  const dot = document.querySelector(".breathing-dot");
+  if(dot) dot.remove();
+}
+
+// ==================== CPR FLASH ====================
+let cprFlashEl = null;
+function showCprFlash(){
+  if(cprFlashEl) return;
+  cprFlashEl = document.createElement("div");
+  cprFlashEl.className = "cpr-flash";
+  imageLayer.appendChild(cprFlashEl);
+}
+function removeCprFlash(){
+  if(cprFlashEl){ cprFlashEl.remove(); cprFlashEl = null; }
+}
+
+// ==================== VIGNETTE ====================
+let vignetteEl = null;
+function showVignette(){
+  if(vignetteEl) return;
+  vignetteEl = document.createElement("div");
+  vignetteEl.className = "vignette";
+  imageLayer.appendChild(vignetteEl);
+}
+function removeVignette(){
+  if(vignetteEl){ vignetteEl.remove(); vignetteEl = null; }
+}
+
+// ==================== TYPING ENGINE ====================
+// target: "narrator" | "subtitle" — which panel to type into
+function typeLine(line, callback, target){
+  target = target || "subtitle";
+  return new Promise(resolve => {
+    const text = line.text;
+    const hlWords = line.hl || [];
+    const container = document.createElement("div");
+    container.className = "subtitle-line";
+    
+    if(target === "narrator"){
+      narratorPanel.appendChild(container);
+      // Auto-scroll to bottom for accumulating narration
+      narratorPanel.scrollTop = narratorPanel.scrollHeight;
+    } else {
+      subtitlePanel.appendChild(container);
+    }
+    
+    // Build spans for each character
+    const spans = [];
+    for(let i = 0; i < text.length; i++){
+      const span = document.createElement("span");
+      span.className = "char";
+      span.textContent = text[i];
+      container.appendChild(span);
+      spans.push({el:span, char:text[i], index:i});
+    }
+    
+    // Determine highlight ranges
+    const hlRanges = [];
+    hlWords.forEach(word => {
+      let idx = text.indexOf(word);
+      while(idx !== -1){
+        hlRanges.push({start:idx, end:idx + word.length});
+        idx = text.indexOf(word, idx + 1);
+      }
+    });
+    
+    function isInHl(idx){
+      for(let r of hlRanges){
+        if(idx >= r.start && idx < r.end) return true;
+      }
+      return false;
+    }
+    
+    // Reveal characters sequentially
+    let charIdx = 0;
+    function revealNext(){
+      if(charIdx >= spans.length){
+        if(callback) callback();
+        resolve();
+        return;
+      }
+      const s = spans[charIdx];
+      if(isInHl(s.index)){
+        s.el.classList.add("hl");
+      }
+      s.el.classList.add("show");
+      charIdx++;
+      typingTimer = setTimeout(revealNext, 50);
+    }
+    revealNext();
+  });
+}
+
+// ==================== SPEAKER TAG ====================
+function addSpeakerTag(name){
+  const tag = document.createElement("span");
+  tag.className = "speaker-tag";
+  tag.textContent = name;
+  const line = document.createElement("div");
+  line.className = "subtitle-line";
+  line.style.textAlign = "left";
+  line.style.paddingLeft = "20px";
+  line.appendChild(tag);
+  subtitlePanel.appendChild(line);
+  return line;
+}
+
+// ==================== SHOW DIALOGUE BLOCK ====================
+async function showDialogueBlock(speaker, text, hl){
+  clearSubtitles();
+  addSpeakerTag(speaker);
+  await typeLine({text, hl: hl || []}, null, "subtitle");
+}
+
+// ==================== SHOW NARRATION BLOCK ====================
+async function showNarrationBlock(text, hl){
+  // Don't clear - accumulate downward in narrator panel
+  await typeLine({text, hl: hl || []}, null, "narrator");
+}
+
+// ==================== SHOW NOTE ====================
+async function showNote(text, hl){
+  const container = document.createElement("div");
+  container.className = "note-line";
+  subtitlePanel.appendChild(container);
+  
+  const spans = [];
+  for(let i = 0; i < text.length; i++){
+    const span = document.createElement("span");
+    span.className = "char";
+    span.textContent = text[i];
+    container.appendChild(span);
+    spans.push({el:span, char:text[i], index:i});
+  }
+  
+  const hlRanges = [];
+  (hl || []).forEach(word => {
+    let idx = text.indexOf(word);
+    while(idx !== -1){
+      hlRanges.push({start:idx, end:idx + word.length});
+      idx = text.indexOf(word, idx + 1);
+    }
+  });
+  
+  function isInHl(idx){
+    for(let r of hlRanges){
+      if(idx >= r.start && idx < r.end) return true;
+    }
+    return false;
+  }
+  
+  for(let i = 0; i < text.length; i++){
+    await new Promise(r => { typingTimer = setTimeout(r, 35); });
+    const s = spans[i];
+    if(isInHl(s.index)) s.el.classList.add("hl");
+    s.el.classList.add("show");
+  }
+}
+
+// ==================== SCENE RENDERER ====================
+async function renderScene(scene){
+  if(typingTimer) clearTimeout(typingTimer);
+  isTyping = true;
+  
+  // Clear states
+  clearAllText();
+  clearChoices();
+  removeCprFlash();
+  removeVignette();
+  removeAedDot();
+  navHint.style.display = "none";
+  
+  // Scene label
+  sceneLabel.textContent = scene.label || "";
+  
+  // Image placeholder
+  placeholder.querySelector(".label").textContent = scene.imageLabel || "场景画面";
+  
+  // Rain
+  if(scene.rain) startRain();
+  else stopRain();
+  
+  // CPR flash
+  if(scene.cprFlash) showCprFlash();
+  
+  // Vignette
+  if(scene.vignette) showVignette();
+  
+  // AED map dot
+  if(scene.aedMap) showAedDot();
+  
+  // === Render main lines ===
+  if(scene.lines){
+    if(scene.type === "narration"){
+      // 旁白 → 左中面板，累积不消除
+      for(let i = 0; i < scene.lines.length; i++){
+        await typeLine(scene.lines[i], null, "narrator");
+        narratorPanel.scrollTop = narratorPanel.scrollHeight;
+      }
+    } else if(scene.type === "dialogue"){
+      // 对话 → 中底字幕面板
+      for(let i = 0; i < scene.lines.length; i++){
+        const line = scene.lines[i];
+        if(i === 0){
+          // 首行加发言人标签
+          clearSubtitles();
+          addSpeakerTag(scene.speaker);
+        }
+        await typeLine(line, null, "subtitle");
+      }
+    }
+  }
+  
+  // === Extra dialogue blocks (go to subtitle panel) ===
+  if(scene.next_dialogue){
+    await new Promise(r => setTimeout(r, 600));
+    clearSubtitles();
+    addSpeakerTag(scene.next_dialogue.speaker);
+    await typeLine({text:scene.next_dialogue.text, hl:scene.next_dialogue.hl}, null, "subtitle");
+    if(scene.next_dialogue.note){
+      await new Promise(r => setTimeout(r, 400));
+      await showNote(scene.next_dialogue.note, []);
+    }
+  }
+  
+  if(scene.next_dialogue2){
+    await new Promise(r => setTimeout(r, 600));
+    clearSubtitles();
+    addSpeakerTag(scene.next_dialogue2.speaker);
+    await typeLine({text:scene.next_dialogue2.text, hl:scene.next_dialogue2.hl}, null, "subtitle");
+    if(scene.next_dialogue2.note){
+      await new Promise(r => setTimeout(r, 400));
+      await showNote(scene.next_dialogue2.note, []);
+    }
+  }
+  
+  // === Extra narration blocks (go to narrator panel, accumulate) ===
+  if(scene.next_narration){
+    await new Promise(r => setTimeout(r, 600));
+    await typeLine({text:scene.next_narration.text, hl:scene.next_narration.hl||[]}, null, "narrator");
+    narratorPanel.scrollTop = narratorPanel.scrollHeight;
+  }
+  
+  if(scene.next_narration2){
+    await new Promise(r => setTimeout(r, 500));
+    await typeLine({text:scene.next_narration2.text, hl:scene.next_narration2.hl||[]}, null, "narrator");
+    narratorPanel.scrollTop = narratorPanel.scrollHeight;
+  }
+  
+  if(scene.next_narration3){
+    await new Promise(r => setTimeout(r, 500));
+    await typeLine({text:scene.next_narration3.text, hl:scene.next_narration3.hl||[]}, null, "narrator");
+    narratorPanel.scrollTop = narratorPanel.scrollHeight;
+  }
+  
+  // Choice
+  if(scene.choice){
+    await new Promise(r => setTimeout(r, 800));
+    showChoices(scene.choice);
+  }
+  
+  // Auto-advance if no choice
+  if(!scene.choice){
+    await new Promise(r => setTimeout(r, 1200));
+    navHint.style.display = "block";
+  }
+  
+  isTyping = false;
+}
+
+// ==================== CHOICES ====================
+function showChoices(choiceData){
+  choiceOverlay.innerHTML = "";
+  
+  const prompt = document.createElement("div");
+  prompt.style.cssText = "text-align:center;color:#f5c842;font-size:16px;letter-spacing:.06em;margin-bottom:8px;";
+  prompt.textContent = choiceData.prompt;
+  choiceOverlay.appendChild(prompt);
+  
+  choiceData.options.forEach(opt => {
+    const btn = document.createElement("button");
+    btn.className = "choice-btn";
+    btn.innerHTML = `<span class="key-label">${opt.key}.</span> ${opt.label}`;
+    btn.addEventListener("click", () => navigateTo(opt.next));
+    choiceOverlay.appendChild(btn);
+  });
+  
+  choiceOverlay.classList.add("active");
+  
+  // Keyboard support
+  const handler = (e) => {
+    const key = e.key.toUpperCase();
+    const opt = choiceData.options.find(o => o.key === key);
+    if(opt){
+      document.removeEventListener("keydown", handler);
+      navigateTo(opt.next);
+    }
+  };
+  document.addEventListener("keydown", handler);
+  // Store for cleanup
+  choiceOverlay._keyHandler = handler;
+}
+
+// ==================== NAVIGATION ====================
+function navigateTo(sceneId){
+  if(choiceOverlay._keyHandler){
+    document.removeEventListener("keydown", choiceOverlay._keyHandler);
+    choiceOverlay._keyHandler = null;
+  }
+  const idx = scenes.findIndex(s => s.id === sceneId);
+  if(idx >= 0){
+    currentSceneIdx = idx;
+    currentLineIdx = 0;
+    updateProgress();
+    renderScene(scenes[currentSceneIdx]);
+  }
+}
+
+function advanceScene(){
+  if(isTyping) return;
+  if(choiceOverlay.classList.contains("active")) return; // Don't skip choices
+  
+  const scene = scenes[currentSceneIdx];
+  // If scene has a direct next, go there
+  if(scene.next){
+    navigateTo(scene.next);
+  } else if(currentSceneIdx < scenes.length - 1){
+    currentSceneIdx++;
+    currentLineIdx = 0;
+    updateProgress();
+    renderScene(scenes[currentSceneIdx]);
+  }
+}
+
+// ==================== EVENT LISTENERS ====================
+document.addEventListener("keydown", (e) => {
+  if(e.code === "Space" || e.code === "ArrowRight"){
+    e.preventDefault();
+    if(!userHasInteracted){
+      userHasInteracted = true;
+      // Start
+      renderScene(scenes[0]);
+      updateProgress();
+      return;
+    }
+    advanceScene();
+  }
+});
+
+document.addEventListener("click", () => {
+  if(!userHasInteracted){
+    userHasInteracted = true;
+    renderScene(scenes[0]);
+    updateProgress();
+    return;
+  }
+  advanceScene();
+});
+
+// ==================== INIT ====================
+// Show initial title
+placeholder.querySelector(".icon").textContent = "🎬";
+placeholder.querySelector(".label").textContent = "生命守护者";
+sceneLabel.textContent = "序幕 & 第一章";
+navHint.style.display = "block";
+progressBar.style.width = "0%";
+
+console.log("《生命守护者》HTML 演示已就绪。点击或按空格键开始。");
+console.log("总场景数：" + scenes.length);
+</script>
+
+</body>
+</html>
