@@ -1,0 +1,1183 @@
+/* ============================================================
+   《生命守护者》Demo框架 — 电影式互动急救叙事游戏
+   色彩规范：克制的电影色，不要花哨渐变/二次元UI/商城感
+   ============================================================ */
+
+/* ========== CSS Variables ========== */
+:root {
+  --bg: #050607;
+  --panel: rgba(3, 6, 10, 0.62);
+  --text: #e8e4dc;
+  --muted: #8f98a3;
+  --amber: #f5c842;
+  --danger: #d84a3a;
+  --medical: #6ee7b7;
+  --blue: #7dd3fc;
+  --font-ui: "Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei", sans-serif;
+  --font-narrator: "Noto Serif SC", "Source Han Serif SC", "SimSun", serif;
+  --transition-speed: 0.5s;
+}
+
+/* ========== Global Reset ========== */
+*, *::before, *::after {
+  margin: 0; padding: 0; box-sizing: border-box;
+}
+
+html, body {
+  width: 100vw; height: 100vh;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ========== Main Game Container ========== */
+#game {
+  position: relative;
+  width: 100vw; height: 100vh;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+/* ========== STAGE — 全屏舞台 ========== */
+#stage {
+  position: absolute; top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 0;
+  transition: background var(--transition-speed) ease;
+}
+
+/* ---------- Scene Placeholders (CSS-only cinematic) ---------- */
+
+/* factory_fire — 暗红火光、烟雾、铁门轮廓 */
+#stage.factory_fire {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 70%, rgba(180, 50, 20, 0.18) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 50% at 50% 75%, rgba(220, 80, 30, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 35% at 50% 85%, rgba(255, 140, 40, 0.08) 0%, transparent 50%),
+    linear-gradient(180deg, #020202 0%, #0a0605 40%, #100808 100%);
+}
+#stage.factory_fire::before {
+  content: "";
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  background:
+    /* smoke wisps */
+    radial-gradient(ellipse 30% 15% at 40% 65%, rgba(80, 60, 50, 0.15) 0%, transparent 70%),
+    radial-gradient(ellipse 25% 12% at 55% 60%, rgba(60, 45, 35, 0.12) 0%, transparent 70%),
+    radial-gradient(ellipse 20% 10% at 48% 55%, rgba(50, 40, 35, 0.10) 0%, transparent 70%),
+    /* iron door silhouette */
+    linear-gradient(180deg, transparent 25%, rgba(30, 25, 20, 0.3) 26%, rgba(30, 25, 20, 0.3) 28%, transparent 29%),
+    linear-gradient(180deg, transparent 28%, rgba(40, 32, 25, 0.35) 29%, rgba(40, 32, 25, 0.35) 31%, transparent 32%);
+  filter: url(#noiseFilter);
+  opacity: 0.7;
+  animation: smokeDrift 8s ease-in-out infinite;
+}
+@keyframes smokeDrift {
+  0%, 100% { transform: translateY(0) scale(1); opacity: 0.7; }
+  50% { transform: translateY(-4px) scale(1.02); opacity: 0.8; }
+}
+
+/* rain_road — 冷蓝雨夜、车灯反光 */
+#stage.rain_road {
+  background:
+    radial-gradient(ellipse 50% 30% at 50% 60%, rgba(30, 60, 100, 0.15) 0%, transparent 60%),
+    radial-gradient(ellipse 15% 8% at 30% 65%, rgba(80, 140, 220, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse 10% 5% at 70% 55%, rgba(200, 80, 40, 0.04) 0%, transparent 50%),
+    linear-gradient(180deg, #020810 0%, #060e18 50%, #0a1018 100%);
+}
+#stage.rain_road::before {
+  content: "";
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  background:
+    /* wet road reflection */
+    linear-gradient(180deg, transparent 55%, rgba(30, 60, 100, 0.25) 60%, rgba(30, 60, 100, 0.15) 65%, transparent 70%),
+    /* distant headlight glow */
+    radial-gradient(ellipse 8% 4% at 25% 62%, rgba(200, 220, 255, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 6% 3% at 75% 58%, rgba(220, 180, 140, 0.05) 0%, transparent 60%);
+  animation: roadGlimmer 3s ease-in-out infinite;
+}
+@keyframes roadGlimmer {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 0.9; }
+}
+
+/* subway_canopy — 雨棚、水帘、人群剪影、暖黄灯 */
+#stage.subway_canopy {
+  background:
+    radial-gradient(ellipse 60% 45% at 50% 55%, rgba(245, 200, 66, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 30% 20% at 50% 50%, rgba(245, 200, 66, 0.05) 0%, transparent 50%),
+    linear-gradient(180deg, #020608 0%, #080e14 40%, #0c1218 100%);
+}
+#stage.subway_canopy::before {
+  content: "";
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  background:
+    /* canopy roof line */
+    linear-gradient(180deg, rgba(20, 25, 35, 0.25) 0%, rgba(20, 25, 35, 0.25) 15%, transparent 16%),
+    /* warm yellow lamp glow */
+    radial-gradient(ellipse 12% 8% at 50% 18%, rgba(245, 200, 66, 0.25) 0%, transparent 60%),
+    radial-gradient(ellipse 8% 5% at 35% 18%, rgba(245, 200, 66, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse 8% 5% at 65% 18%, rgba(245, 200, 66, 0.12) 0%, transparent 50%),
+    /* water curtain at awning edge */
+    linear-gradient(180deg, transparent 14%, rgba(140, 170, 200, 0.06) 15%, rgba(140, 170, 200, 0.06) 16%, transparent 17%),
+    /* crowd silhouette ring */
+    radial-gradient(ellipse 45% 40% at 50% 55%, transparent 50%, rgba(10, 12, 18, 0.5) 51%, rgba(10, 12, 18, 0.5) 52%, transparent 53%),
+    /* pillar silhouette */
+    linear-gradient(90deg, transparent 48%, rgba(15, 18, 22, 0.3) 49%, rgba(15, 18, 22, 0.3) 52%, transparent 53%);
+  animation: canopyMood 6s ease-in-out infinite;
+}
+@keyframes canopyMood {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; }
+}
+
+/* cpr_closeup — 低角度、暖光圆心、压迫感 */
+#stage.cpr_closeup {
+  background:
+    radial-gradient(ellipse 35% 25% at 50% 55%, rgba(245, 200, 66, 0.10) 0%, transparent 55%),
+    radial-gradient(ellipse 20% 15% at 50% 50%, rgba(245, 200, 66, 0.06) 0%, transparent 45%),
+    linear-gradient(180deg, #04080c 0%, #080e12 50%, #0c1218 100%);
+}
+#stage.cpr_closeup::before {
+  content: "";
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  background:
+    /* low angle ground light */
+    radial-gradient(ellipse 30% 10% at 50% 90%, rgba(245, 200, 66, 0.18) 0%, transparent 50%),
+    /* hand/shoulder silhouette */
+    radial-gradient(ellipse 15% 20% at 50% 40%, rgba(8, 10, 14, 0.5) 0%, transparent 70%);
+  animation: cprGlow 1.2s ease-in-out infinite;
+}
+@keyframes cprGlow {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+/* aed_protocol — 黄色AED箱、机器提示感 */
+#stage.aed_protocol {
+  background:
+    radial-gradient(ellipse 25% 20% at 50% 40%, rgba(245, 200, 66, 0.10) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 40% at 50% 50%, rgba(30, 60, 40, 0.08) 0%, transparent 50%),
+    linear-gradient(180deg, #080a0c 0%, #0c1014 50%, #0a0e12 100%);
+}
+#stage.aed_protocol::before {
+  content: "";
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  background:
+    /* AED box silhouette */
+    linear-gradient(90deg, transparent 35%, rgba(245, 200, 66, 0.06) 35.5%, rgba(245, 200, 66, 0.06) 40%, transparent 40.5%),
+    linear-gradient(180deg, transparent 30%, rgba(245, 200, 66, 0.04) 31%, rgba(245, 200, 66, 0.04) 35%, transparent 36%),
+    /* clean procedural grid */
+    linear-gradient(90deg, rgba(30, 50, 70, 0.03) 0px, transparent 1px),
+    linear-gradient(0deg, rgba(30, 50, 70, 0.03) 0px, transparent 1px);
+  background-size: 60px 60px;
+  animation: aedPulse 2s ease-in-out infinite;
+}
+@keyframes aedPulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 0.9; }
+}
+
+/* aed_map — 蓝色城市网格和黄色呼吸光点 */
+#stage.aed_map {
+  background:
+    linear-gradient(180deg, #020810 0%, #041020 50%, #020810 100%);
+}
+#stage.aed_map::before {
+  content: "";
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  background:
+    /* city grid */
+    linear-gradient(90deg, rgba(80, 140, 200, 0.06) 0px, transparent 1px),
+    linear-gradient(0deg, rgba(80, 140, 200, 0.06) 0px, transparent 1px),
+    /* main roads */
+    linear-gradient(90deg, rgba(80, 140, 200, 0.12) 0px, transparent 1px),
+    linear-gradient(0deg, rgba(80, 140, 200, 0.12) 0px, transparent 1px),
+    /* block areas */
+    radial-gradient(ellipse 8% 5% at 30% 40%, rgba(80, 140, 200, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 10% 6% at 50% 35%, rgba(80, 140, 200, 0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 7% 4% at 65% 50%, rgba(80, 140, 200, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 12% 7% at 40% 55%, rgba(80, 140, 200, 0.05) 0%, transparent 60%);
+  background-size: 180px 180px, 180px 180px, 720px 720px, 720px 720px, 100% 100%;
+}
+
+/* ========== CINEMATIC OVERLAY — 电影遮罩 ========== */
+#cinematicOverlay {
+  position: absolute; top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 2;
+  pointer-events: none;
+  /* letterbox bars */
+  box-shadow: inset 0 6vh 12vh rgba(0,0,0,0.6), inset 0 -6vh 12vh rgba(0,0,0,0.6);
+  transition: all var(--transition-speed);
+}
+
+/* ========== INTERTITLE LAYER — 黑幕间幕 ========== */
+#intertitleLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 28;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 70% 50% at 50% 52%, rgba(24, 24, 20, 0.3) 0%, transparent 58%),
+    rgba(0, 0, 0, 0.96);
+  opacity: 0;
+}
+#intertitleLayer.active {
+  display: flex;
+  animation: intertitleIn 0.34s ease-out forwards;
+}
+#intertitleLayer.fading {
+  animation: intertitleOut 0.72s ease-in forwards;
+}
+.intertitle-text {
+  width: min(840px, 78vw);
+  font-family: var(--font-narrator);
+  font-size: 28px;
+  line-height: 1.75;
+  color: rgba(236, 231, 222, 0.88);
+  text-align: center;
+  text-shadow: 0 0 24px rgba(245, 200, 66, 0.08);
+}
+.intertitle-text .char {
+  opacity: 0;
+  filter: blur(5px);
+  transition: opacity 0.16s ease, filter 0.22s ease;
+}
+.intertitle-text .char.revealed {
+  opacity: 1;
+  filter: blur(0);
+}
+.intertitle-text .char.hl {
+  color: var(--amber);
+}
+@keyframes intertitleIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes intertitleOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* ========== RAIN SYSTEM ========== */
+#rainLayer {
+  position: absolute; top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 3;
+  pointer-events: none;
+  overflow: hidden;
+  display: none;
+}
+#rainLayer.active { display: block; }
+
+.rain-drop {
+  position: absolute;
+  width: 1px;
+  height: 18px;
+  background: linear-gradient(180deg, transparent 0%, rgba(160, 190, 210, 0.5) 100%);
+  animation: rainFall linear infinite;
+}
+.rain-drop.heavy {
+  height: 24px;
+  background: linear-gradient(180deg, transparent 0%, rgba(140, 175, 200, 0.6) 100%);
+}
+@keyframes rainFall {
+  0%   { transform: translateY(-10vh); opacity: 0; }
+  5%   { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { transform: translateY(105vh); opacity: 0; }
+}
+
+/* Wind-blown rain variant */
+.rain-drop.wind {
+  animation: rainFallWind linear infinite;
+}
+@keyframes rainFallWind {
+  0%   { transform: translate(-5px, -10vh); opacity: 0; }
+  5%   { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { transform: translate(30px, 105vh); opacity: 0; }
+}
+
+/* ========== HUD — 现场状态 ========== */
+#hud {
+  position: absolute;
+  top: 3vh; left: 3vw;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  transition: opacity 0.3s;
+}
+#hud.hidden { opacity: 0; pointer-events: none; }
+
+.hud-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 10px;
+  background: rgba(3, 6, 10, 0.55);
+  border-left: 2px solid rgba(255, 255, 255, 0.08);
+}
+.hud-label {
+  color: var(--muted);
+  min-width: 70px;
+}
+.hud-value {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.hud-value.warning { color: var(--amber); }
+.hud-value.danger { color: var(--danger); }
+.hud-value.good { color: var(--medical); }
+
+/* ========== NARRATION LAYER — 旁白（左中） ========== */
+#narrationLayer {
+  position: absolute;
+  left: 4vw;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  pointer-events: none;
+  width: 44vw;
+  max-width: 720px;
+  max-height: 65vh;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+#narrationLayer:empty { display: none; }
+#narrationLayer::-webkit-scrollbar { display: none; }
+
+#narrationLayer .narration-line {
+  font-family: var(--font-narrator);
+  font-size: 22px;
+  line-height: 1.6;
+  letter-spacing: 0.06em;
+  color: rgba(232, 228, 220, 0.82);
+  font-style: italic;
+  margin-bottom: 8px;
+  padding: 8px 18px 9px 22px;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.48), rgba(0, 0, 0, 0.08));
+  border-left: 2px solid rgba(245, 200, 66, 0.34);
+  animation: lineReveal 0.5s ease-out;
+}
+@keyframes lineReveal {
+  from { opacity: 0; transform: translateX(-12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.narration-line .char {
+  opacity: 0;
+  transition: opacity 0.03s ease;
+}
+.narration-line .char.revealed { opacity: 1; }
+.narration-line .char.hl {
+  color: var(--amber);
+  font-weight: 600;
+  text-shadow: 0 0 8px rgba(245, 200, 66, 0.3);
+}
+
+/* Old narration dimming */
+.narration-line.old {
+  opacity: 0;
+  transform: translateX(-10px);
+  transition: opacity 1.4s ease, transform 1.4s ease;
+}
+
+/* ========== SUBTITLE LAYER — 对白字幕（底部中央） ========== */
+#subtitleLayer {
+  position: absolute;
+  bottom: 10vh;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  pointer-events: none;
+  width: min(75vw, 900px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 32px 20px;
+  background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.65) 35%, rgba(0,0,0,0.75) 100%);
+  border-radius: 4px;
+  min-height: 40px;
+}
+#subtitleLayer:empty { display: none; }
+
+.speaker-tag {
+  display: inline-block;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--amber);
+  border: 1px solid rgba(245, 200, 66, 0.35);
+  padding: 2px 12px;
+  border-radius: 2px;
+  margin-right: 10px;
+  letter-spacing: 0.1em;
+  vertical-align: middle;
+}
+.speaker-tag.aed-voice {
+  color: var(--medical);
+  border-color: rgba(110, 231, 183, 0.35);
+  font-family: "Courier New", monospace;
+  letter-spacing: 0.15em;
+}
+.speaker-tag.dispatcher {
+  color: var(--blue);
+  border-color: rgba(125, 211, 252, 0.3);
+}
+
+.subtitle-text {
+  font-family: var(--font-ui);
+  font-size: 21px;
+  line-height: 1.5;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  text-align: center;
+}
+.subtitle-text .char {
+  opacity: 0;
+  transition: opacity 0.04s ease;
+}
+.subtitle-text .char.revealed { opacity: 1; }
+.subtitle-text .char.hl {
+  color: var(--amber);
+  font-weight: 600;
+}
+
+.subtitle-note {
+  font-family: var(--font-narrator);
+  font-size: 14px;
+  color: var(--muted);
+  font-style: italic;
+  text-align: center;
+  max-width: 600px;
+  line-height: 1.4;
+  margin-top: 2px;
+}
+.subtitle-note .char {
+  opacity: 0;
+  transition: opacity 0.03s ease;
+}
+.subtitle-note .char.revealed { opacity: 1; }
+
+/* ========== CHOICE LAYER ========== */
+#choiceLayer {
+  position: absolute;
+  bottom: 18vh;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 25;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: min(720px, 86vw);
+}
+#choiceLayer.active { display: flex; }
+
+.choice-prompt {
+  color: rgba(232, 228, 220, 0.72);
+  font-family: var(--font-narrator);
+  font-size: 18px;
+  letter-spacing: 0.08em;
+  text-align: center;
+  margin-bottom: 10px;
+  text-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+}
+
+.choice-option {
+  width: 100%;
+  min-height: 64px;
+  background: linear-gradient(90deg, rgba(5, 7, 10, 0.88), rgba(5, 7, 10, 0.58));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text);
+  padding: 18px 22px;
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+.choice-option::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0;
+  width: 3px; height: 100%;
+  background: var(--amber);
+  opacity: 0.28;
+  transition: opacity 0.3s, width 0.3s;
+}
+.choice-option:hover {
+  border-color: rgba(245, 200, 66, 0.52);
+  background: linear-gradient(90deg, rgba(16, 20, 28, 0.94), rgba(16, 20, 28, 0.68));
+  transform: translateX(4px);
+}
+.choice-option:hover::before { opacity: 1; width: 5px; }
+
+.choice-key {
+  display: inline-block;
+  color: rgba(245, 200, 66, 0.82);
+  font-weight: 700;
+  font-size: 13px;
+  min-width: 30px;
+  margin-right: 10px;
+}
+.choice-label {
+  font-size: 20px;
+  letter-spacing: 0.04em;
+  display: inline;
+}
+.choice-desc {
+  display: none;
+}
+.choice-risk {
+  display: none;
+}
+
+/* ========== INTERACTION LAYER ========== */
+#interactionLayer {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 18;
+  pointer-events: none;
+  display: none;
+}
+#interactionLayer.active {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+}
+
+/* ---------- CPR Rhythm Bar ---------- */
+#cprModule {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  position: absolute;
+  bottom: 30vh;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 19;
+}
+#cprModule.active { display: flex; }
+
+.cpr-hint {
+  color: var(--medical);
+  font-size: 15px;
+  letter-spacing: 0.08em;
+  font-family: var(--font-ui);
+}
+
+.cpr-bar-container {
+  width: 420px;
+  height: 10px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 0;
+  overflow: hidden;
+  position: relative;
+}
+.cpr-bar-fill {
+  height: 100%;
+  background: var(--medical);
+  border-radius: 0;
+  transition: width 0.1s;
+}
+.cpr-bar-fill.warning { background: var(--amber); }
+.cpr-bar-fill.danger { background: var(--danger); }
+
+.cpr-zone {
+  position: absolute;
+  top: -4px;
+  height: 14px;
+  border: 1px dashed rgba(110, 231, 183, 0.35);
+  border-radius: 3px;
+}
+.cpr-beat-indicator {
+  width: 3px; height: 14px;
+  background: var(--text);
+  position: absolute;
+  top: -4px;
+  border-radius: 2px;
+  transition: left 0.05s linear;
+}
+
+.cpr-stats {
+  display: flex;
+  gap: 24px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+.cpr-stats span { color: var(--text); }
+.cpr-stats .cpr-rate.warning { color: var(--amber); }
+.cpr-stats .cpr-rate.danger { color: var(--danger); }
+
+.cpr-feedback {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  min-height: 20px;
+  text-align: center;
+}
+.cpr-feedback.good { color: var(--medical); }
+.cpr-feedback.warn { color: var(--amber); }
+
+/* ---------- AED Interaction ---------- */
+#aedModule {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  position: absolute;
+  bottom: 25vh;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 19;
+}
+#aedModule.active { display: flex; }
+
+.aed-step {
+  font-family: var(--font-ui);
+  font-size: 15px;
+  letter-spacing: 0.06em;
+  color: var(--medical);
+  text-align: center;
+}
+.aed-action-btn {
+  background: rgba(10, 14, 20, 0.88);
+  border: 1px solid rgba(110, 231, 183, 0.3);
+  color: var(--medical);
+  padding: 12px 32px;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: 15px;
+  letter-spacing: 0.08em;
+  transition: all 0.3s;
+}
+.aed-action-btn:hover {
+  border-color: var(--medical);
+  background: rgba(16, 24, 20, 0.92);
+}
+.aed-action-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  border-color: rgba(255,255,255,0.1);
+  color: var(--muted);
+}
+.aed-status {
+  font-family: "Courier New", monospace;
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  color: var(--blue);
+  min-height: 18px;
+}
+
+/* ---------- Character Assignment Cards ---------- */
+#assignModule {
+  display: none;
+  gap: 16px;
+  position: absolute;
+  bottom: 22vh;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 19;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 680px;
+}
+#assignModule.active { display: flex; }
+
+.assign-card {
+  background: rgba(5, 7, 10, 0.82);
+  border: 1px solid rgba(255,255,255,0.1);
+  padding: 16px 18px;
+  width: 210px;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-align: center;
+}
+.assign-card:hover {
+  border-color: rgba(245, 200, 66, 0.3);
+  background: rgba(16, 20, 28, 0.9);
+}
+.assign-card .card-portrait {
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  background: rgba(245, 200, 66, 0.08);
+  margin: 0 auto 8px;
+  border: 1px solid rgba(245, 200, 66, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: rgba(245, 200, 66, 0.76);
+}
+.assign-card .card-name {
+  font-size: 14px;
+  color: var(--text);
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+.assign-card .card-task {
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+.assign-card.assigned {
+  border-color: var(--amber);
+  opacity: 0.5;
+  pointer-events: none;
+}
+.assign-card.assigned .card-portrait {
+  border-color: var(--amber);
+}
+
+/* ---------- Takeover Interaction ---------- */
+#takeoverModule {
+  display: none;
+  position: absolute;
+  bottom: 30vh;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 19;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+#takeoverModule.active { display: flex; }
+
+.takeover-countdown {
+  font-family: "Courier New", monospace;
+  font-size: 48px;
+  color: var(--amber);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+.takeover-hint {
+  font-size: 14px;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+}
+.takeover-btn {
+  background: rgba(10, 14, 20, 0.88);
+  border: 2px solid var(--amber);
+  color: var(--amber);
+  padding: 14px 48px;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: 18px;
+  letter-spacing: 0.1em;
+  transition: all 0.2s;
+}
+.takeover-btn:hover {
+  background: rgba(20, 28, 20, 0.92);
+}
+
+/* ========== REVIEW LAYER — 章节复盘 ========== */
+#reviewLayer {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 30;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(3, 6, 10, 0.92);
+}
+#reviewLayer.active { display: flex; }
+
+.review-container {
+  width: min(680px, 88vw);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 40px 48px;
+}
+
+.review-title {
+  font-family: var(--font-narrator);
+  font-size: 28px;
+  letter-spacing: 0.12em;
+  text-align: center;
+  color: var(--amber);
+  margin-bottom: 8px;
+}
+.review-subtitle {
+  font-size: 14px;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.review-section {
+  border-left: 2px solid rgba(255,255,255,0.06);
+  padding-left: 16px;
+}
+.review-section h3 {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  color: var(--amber);
+  margin-bottom: 8px;
+  font-weight: 400;
+}
+.review-section .review-item {
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.8;
+  letter-spacing: 0.04em;
+}
+.review-section .review-item span {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.review-section .review-item .good { color: var(--medical); }
+.review-section .review-item .warn { color: var(--amber); }
+.review-section .review-item .bad { color: var(--danger); }
+
+.review-chapter2 {
+  margin-top: 24px;
+  padding: 16px 0;
+  text-align: center;
+  border-top: 1px solid rgba(255,255,255,0.04);
+}
+.review-chapter2 .ch2-title {
+  font-size: 18px;
+  color: var(--text);
+  letter-spacing: 0.1em;
+  margin-bottom: 4px;
+}
+.review-chapter2 .ch2-status {
+  font-size: 13px;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+}
+
+.review-continue {
+  margin-top: 32px;
+  padding: 12px 36px;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--muted);
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  transition: all 0.3s;
+}
+.review-continue:hover {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+/* ========== STATE FEEDBACK — 变量变化提示 ========== */
+#stateFeedback {
+  position: absolute;
+  top: 12vh;
+  right: 4vw;
+  z-index: 22;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  pointer-events: none;
+}
+.state-feedback-item {
+  font-family: "Courier New", monospace;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  opacity: 0;
+  transform: translateX(20px);
+  animation: feedbackSlide 3s ease-out forwards;
+}
+@keyframes feedbackSlide {
+  0%   { opacity: 0; transform: translateX(20px); }
+  15%  { opacity: 0.9; transform: translateX(0); }
+  80%  { opacity: 0.6; transform: translateX(0); }
+  100% { opacity: 0; transform: translateX(-4px); }
+}
+.state-feedback-item.positive { color: var(--medical); }
+.state-feedback-item.negative { color: var(--danger); }
+.state-feedback-item.neutral { color: var(--amber); }
+
+/* ========== PAUSE MENU ========== */
+#pauseMenu {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 35;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(3, 6, 10, 0.85);
+  gap: 12px;
+}
+#pauseMenu.active { display: flex; }
+
+.pause-menu-title {
+  font-family: var(--font-narrator);
+  font-size: 24px;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+.pause-menu-btn {
+  width: 240px;
+  padding: 12px 0;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--muted);
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: 15px;
+  letter-spacing: 0.08em;
+  transition: all 0.3s;
+  text-align: center;
+}
+.pause-menu-btn:hover {
+  border-color: rgba(255,255,255,0.2);
+  color: var(--text);
+}
+
+/* ========== START SCREEN — 第一屏入口 ========== */
+#startScreen {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  cursor: pointer;
+  transition: opacity 1s ease;
+}
+#startScreen.fade-out { opacity: 0; pointer-events: none; }
+
+.start-bg {
+  position: absolute; top: 0; left: 0;
+  width: 100%; height: 100%;
+  background:
+    radial-gradient(ellipse 50% 35% at 50% 55%, rgba(245, 200, 66, 0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 30% 20% at 50% 50%, rgba(245, 200, 66, 0.04) 0%, transparent 60%),
+    linear-gradient(180deg, #010304 0%, #04080c 40%, #080e12 100%);
+}
+.start-bg::before {
+  content: "";
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  background:
+    /* awning line */
+    linear-gradient(180deg, rgba(15, 18, 24, 0.2) 0%, rgba(15, 18, 24, 0.2) 18%, transparent 19%),
+    /* warm lamp */
+    radial-gradient(ellipse 10% 7% at 50% 22%, rgba(245, 200, 66, 0.2) 0%, transparent 60%),
+    radial-gradient(ellipse 6% 4% at 32% 22%, rgba(245, 200, 66, 0.1) 0%, transparent 50%),
+    radial-gradient(ellipse 6% 4% at 68% 22%, rgba(245, 200, 66, 0.1) 0%, transparent 50%),
+    /* water curtain */
+    linear-gradient(180deg, transparent 17%, rgba(100, 140, 180, 0.04) 18%, rgba(100, 140, 180, 0.04) 19%, transparent 20%),
+    /* crowd circle */
+    radial-gradient(ellipse 40% 38% at 50% 58%, transparent 55%, rgba(8, 10, 14, 0.55) 56%, rgba(8, 10, 14, 0.55) 57%, transparent 58%);
+}
+
+.start-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  pointer-events: none;
+}
+.start-title {
+  font-family: var(--font-narrator);
+  font-size: 52px;
+  letter-spacing: 0.2em;
+  color: var(--text);
+  text-shadow: 0 0 40px rgba(245, 200, 66, 0.15);
+}
+.start-hint {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: rgba(143, 152, 163, 0.5);
+  letter-spacing: 0.15em;
+  animation: hintPulse 2.5s ease-in-out infinite;
+}
+@keyframes hintPulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.7; }
+}
+
+/* start screen rain */
+#startRain {
+  position: absolute; top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none; overflow: hidden;
+}
+
+/* ========== SCREEN SHAKE ========== */
+.screen-shake {
+  animation: screenShake 0.4s ease-in-out;
+}
+@keyframes screenShake {
+  0%, 100% { transform: translate(0, 0); }
+  15%  { transform: translate(-4px, 2px); }
+  30%  { transform: translate(3px, -3px); }
+  45%  { transform: translate(-2px, -1px); }
+  60%  { transform: translate(2px, 3px); }
+  75%  { transform: translate(-1px, -2px); }
+  90%  { transform: translate(1px, 1px); }
+}
+
+/* ========== BACKGROUND DIMMING (for choice moments) ========== */
+#stage.dimmed {
+  filter: brightness(0.45);
+  transition: filter 0.6s ease;
+}
+
+/* ========== NAVIGATION HINT ========== */
+#navHint {
+  position: absolute;
+  bottom: 3vh;
+  right: 4vw;
+  z-index: 15;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: rgba(143, 152, 163, 0.35);
+  letter-spacing: 0.12em;
+  animation: hintPulse 2.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 1366px) {
+  #narrationLayer {
+    left: 3vw;
+    width: 46vw;
+    max-width: 600px;
+  }
+  #narrationLayer .narration-line {
+    font-size: 19px;
+  }
+  #subtitleLayer {
+    width: min(80vw, 800px);
+    bottom: 8vh;
+  }
+  .subtitle-text {
+    font-size: 18px;
+  }
+  #choiceLayer {
+    bottom: 20vh;
+  }
+}
+
+@media (max-width: 768px) {
+  #narrationLayer {
+    left: 2vw;
+    width: 50vw;
+    max-width: none;
+    max-height: 50vh;
+    top: 40%;
+  }
+  #narrationLayer .narration-line {
+    font-size: 15px;
+    padding: 2px 8px;
+  }
+  #subtitleLayer {
+    width: 92vw;
+    bottom: 12vh;
+    padding: 12px 16px 16px;
+  }
+  .subtitle-text {
+    font-size: 15px;
+  }
+  .intertitle-text {
+    font-size: 22px;
+    width: 84vw;
+  }
+  .start-title {
+    font-size: 36px;
+  }
+  .speaker-tag {
+    font-size: 11px;
+    padding: 2px 8px;
+  }
+  #choiceLayer {
+    bottom: 24vh;
+    width: 90vw;
+  }
+  .choice-option {
+    padding: 12px 14px;
+  }
+  .choice-label {
+    font-size: 14px;
+  }
+  #hud {
+    top: 1.5vh;
+    left: 1.5vw;
+    font-size: 10px;
+    gap: 3px;
+  }
+  .hud-label { min-width: 55px; }
+  .hud-row { padding: 2px 6px; }
+  .cpr-bar-container { width: 260px; }
+  .assign-card { width: 160px; padding: 10px 12px; }
+  .review-container { padding: 24px 20px; }
+}
+
+/* Mobile vertical warning */
+@media (max-width: 768px) and (orientation: portrait) {
+  #mobileWarning {
+    display: flex !important;
+  }
+}
+#mobileWarning {
+  display: none;
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 50;
+  background: var(--bg);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 14px;
+  letter-spacing: 0.06em;
+}
+
+/* ========== Global Animation Keyframes ========== */
+@keyframes cprFlashAnim {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
+}
+@keyframes aedDotBreathe {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.6); opacity: 1; }
+}
+
+/* ---------- speaker-tag-line for subtitle reuse ---------- */
+#subtitleLayer .speaker-tag-line {
+  margin-bottom: 4px;
+}

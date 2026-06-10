@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>生命守护者</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+/* ========== CPR Flash animation keyframe (in HTML to avoid CSP issues) ========== */
+@keyframes cprFlashAnim {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
+}
+@keyframes aedDotBreathe {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.6); opacity: 1; }
+}
+</style>
+</head>
+<body>
+
+<!-- ==============================
+     主游戏容器
+     ============================== -->
+<div id="game">
+
+  <!-- 全屏舞台（CSS占位背景） -->
+  <section id="stage"></section>
+
+  <!-- 电影遮罩层（letterbox/晕影） -->
+  <section id="cinematicOverlay"></section>
+
+  <!-- 黑幕间幕层：普通叙事逐字出现后淡出 -->
+  <section id="intertitleLayer" aria-live="polite"></section>
+
+  <!-- 雨效层 -->
+  <section id="rainLayer"></section>
+
+  <!-- HUD - 现场状态 -->
+  <section id="hud"></section>
+
+  <!-- 旁白层 - 左中 -->
+  <section id="narrationLayer"></section>
+
+  <!-- 字幕层 - 底部中央 -->
+  <section id="subtitleLayer"></section>
+
+  <!-- 选择层 -->
+  <section id="choiceLayer"></section>
+
+  <!-- 交互层 -->
+  <section id="interactionLayer">
+
+    <!-- CPR节奏模块 -->
+    <div id="cprModule">
+      <div class="cpr-hint">按压不断，胸廓回弹</div>
+      <div class="cpr-bar-container">
+        <div class="cpr-bar-fill" id="cprBarFill"></div>
+        <div class="cpr-zone" id="cprTargetZone" style="left:35%;width:30%;"></div>
+        <div class="cpr-beat-indicator" id="cprBeatBar" style="left:50%;"></div>
+      </div>
+      <div class="cpr-stats">
+        <span>目标：100-120/min</span>
+        <span>当前：<span class="cpr-rate" id="cprRateDisplay">--</span>/min</span>
+        <span>质量：<span id="cprQualityDisplay">良好</span></span>
+      </div>
+      <div class="cpr-feedback good" id="cprFeedback"></div>
+    </div>
+
+    <!-- AED操作模块 -->
+    <div id="aedModule">
+      <div class="aed-step" id="aedStepText">AED已到场</div>
+      <button class="aed-action-btn" id="aedActionBtn">操作</button>
+      <div class="aed-status" id="aedStatus"></div>
+    </div>
+
+    <!-- 点名分工模块 -->
+    <div id="assignModule">
+      <div class="assign-card" data-witness="sun_jianguo">
+        <div class="card-portrait">孙</div>
+        <div class="card-name">灰西装先生</div>
+        <div class="card-task">手机攥在手里，目光躲开</div>
+      </div>
+      <div class="assign-card" data-witness="ma_zhiguo">
+        <div class="card-portrait">马</div>
+        <div class="card-name">保安师傅</div>
+        <div class="card-task">站在安检口方向，身体绷直</div>
+      </div>
+      <div class="assign-card" data-witness="lin_xiaoyu">
+        <div class="card-portrait">林</div>
+        <div class="card-name">白衬衫姑娘</div>
+        <div class="card-task">攥着背包带，嘴唇发白</div>
+      </div>
+    </div>
+
+    <!-- 换人交接模块 -->
+    <div id="takeoverModule">
+      <div class="takeover-hint">三、二、一，别让胸口停下</div>
+      <div class="takeover-countdown" id="takeoverCountdown">3</div>
+      <button class="takeover-btn" id="takeoverBtn">交接</button>
+    </div>
+
+  </section>
+
+  <!-- 复盘层 -->
+  <section id="reviewLayer"></section>
+
+  <!-- 状态反馈 -->
+  <section id="stateFeedback"></section>
+
+  <!-- 场景标签 -->
+  <div class="scene-label" id="sceneLabel" style="position:absolute;top:3vh;right:4vw;font-size:12px;color:rgba(143,152,163,0.4);letter-spacing:0.1em;z-index:15;"></div>
+
+  <!-- 导航提示 -->
+  <div id="navHint">继续</div>
+
+  <!-- 暂停菜单 -->
+  <section id="pauseMenu">
+    <div class="pause-menu-title">暂停</div>
+    <button class="pause-menu-btn" id="pauseResume">继续</button>
+    <button class="pause-menu-btn" id="pauseRestart">重新开始</button>
+    <button class="pause-menu-btn" id="pauseToggleHUD">显示/隐藏 HUD</button>
+    <button class="pause-menu-btn" id="pauseReview">跳到章节复盘</button>
+  </section>
+
+  <!-- 开始画面 -->
+  <section id="startScreen">
+    <div class="start-bg"></div>
+    <div id="startRain"></div>
+    <div class="start-content">
+      <div class="start-title">生命守护者</div>
+      <div class="start-hint">开始</div>
+    </div>
+  </section>
+
+  <!-- 竖屏提示 -->
+  <div id="mobileWarning">
+    <div>建议横屏体验</div>
+    <div style="font-size:12px;opacity:0.6;">最佳分辨率 1920×1080</div>
+  </div>
+
+</div>
+
+<!-- ==============================
+     JS 模块加载（按依赖顺序）
+     ============================== -->
+<script src="js/state.js"></script>
+<script src="js/scenes.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/interactions.js"></script>
+<script src="js/game.js"></script>
+
+</body>
+</html>
