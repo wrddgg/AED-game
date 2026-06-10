@@ -333,7 +333,6 @@ const Game = {
       }
 
       const text = line.text || "";
-      const hlWords = line.hl || [];
       layer.innerHTML = "";
       layer.className = "active";
 
@@ -349,17 +348,6 @@ const Game = {
         container.appendChild(span);
         spans.push({ el: span, index: i });
       }
-
-      const hlRanges = [];
-      hlWords.forEach(word => {
-        let idx = text.indexOf(word);
-        while (idx !== -1) {
-          hlRanges.push({ start: idx, end: idx + word.length });
-          idx = text.indexOf(word, idx + 1);
-        }
-      });
-
-      const isHl = idx => hlRanges.some(r => idx >= r.start && idx < r.end);
 
       let charIdx = 0;
       const revealNext = () => {
@@ -377,7 +365,6 @@ const Game = {
         if (this.skipNext) {
           spans.forEach(s => {
             s.el.classList.add("revealed");
-            if (isHl(s.index)) s.el.classList.add("hl");
           });
           this.skipNext = false;
           charIdx = spans.length;
@@ -386,7 +373,6 @@ const Game = {
         }
 
         const s = spans[charIdx];
-        if (isHl(s.index)) s.el.classList.add("hl");
         s.el.classList.add("revealed");
         charIdx++;
         this.typingTimer = setTimeout(revealNext, line.speed || 34);

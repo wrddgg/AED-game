@@ -215,7 +215,7 @@ html, body {
   transition: all var(--transition-speed);
 }
 
-/* ========== INTERTITLE LAYER — 黑幕间幕 ========== */
+/* ========== INTERTITLE LAYER — 画面间幕（透明悬浮） ========== */
 #intertitleLayer {
   position: absolute;
   inset: 0;
@@ -224,9 +224,7 @@ html, body {
   align-items: center;
   justify-content: center;
   pointer-events: none;
-  background:
-    radial-gradient(ellipse 70% 50% at 50% 52%, rgba(24, 24, 20, 0.3) 0%, transparent 58%),
-    rgba(0, 0, 0, 0.96);
+  background: transparent;
   opacity: 0;
 }
 #intertitleLayer.active {
@@ -255,7 +253,8 @@ html, body {
   filter: blur(0);
 }
 .intertitle-text .char.hl {
-  color: var(--amber);
+  /* 正中间字幕不标黄 */
+  color: rgba(236, 231, 222, 0.88);
 }
 @keyframes intertitleIn {
   from { opacity: 0; }
