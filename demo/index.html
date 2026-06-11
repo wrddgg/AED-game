@@ -27,8 +27,17 @@
   <!-- 全屏舞台（CSS占位背景） -->
   <section id="stage"></section>
 
+  <!-- 媒体素材层 · 图片/视频（z-index:1, 在舞台之上、遮罩之下） -->
+  <section id="mediaLayer"></section>
+
   <!-- 电影遮罩层（letterbox/晕影） -->
   <section id="cinematicOverlay"></section>
+
+  <!-- 场景切换过渡遮罩 -->
+  <div id="sceneTransition"></div>
+
+  <!-- 消散粒子Canvas -->
+  <canvas id="dissolveCanvas"></canvas>
 
   <!-- 黑幕间幕层：普通叙事逐字出现后淡出 -->
   <section id="intertitleLayer" aria-live="polite"></section>
@@ -41,6 +50,10 @@
 
   <!-- 旁白层 - 左中 -->
   <section id="narrationLayer"></section>
+
+  <!-- 堆叠旁白层 - 屏幕中央，句句向下累积 -->
+  <section id="stackedNarrator" class="stacked-narrator"></section>
+
 
   <!-- 字幕层 - 底部中央 -->
   <section id="subtitleLayer"></section>
@@ -137,6 +150,36 @@
   <div id="mobileWarning">
     <div>建议横屏体验</div>
     <div style="font-size:12px;opacity:0.6;">最佳分辨率 1920×1080</div>
+  </div>
+
+  <!-- ==============================
+       调试面板
+       ============================== -->
+  <div id="debugPanel">
+    <div class="dbg-header">
+      <span class="dbg-title">🔧 调试</span>
+      <button class="dbg-toggle" id="dbgToggle" title="折叠/展开">−</button>
+    </div>
+    <div class="dbg-body" id="dbgBody">
+      <div class="dbg-section">
+        <label class="dbg-label">跳转场景</label>
+        <select class="dbg-select" id="dbgSceneSelect">
+          <option value="">-- 选择场景 --</option>
+        </select>
+      </div>
+      <div class="dbg-section">
+        <label class="dbg-label">当前场景</label>
+        <div class="dbg-info" id="dbgCurrentScene">—</div>
+      </div>
+      <div class="dbg-section">
+        <label class="dbg-label">状态变量</label>
+        <div class="dbg-state" id="dbgStateVars"></div>
+      </div>
+      <div class="dbg-section dbg-actions">
+        <button class="dbg-btn" id="dbgRestart">重新开始</button>
+        <button class="dbg-btn" id="dbgToggleHud">HUD切换</button>
+      </div>
+    </div>
   </div>
 
 </div>

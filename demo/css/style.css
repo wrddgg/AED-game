@@ -50,6 +50,21 @@ html, body {
   transition: background var(--transition-speed) ease;
 }
 
+/* 场景切换过渡遮罩：场景切换时短暂黑屏交叉淡入 */
+#sceneTransition {
+  position: absolute; top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 5;
+  pointer-events: none;
+  background: #000;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+#sceneTransition.active {
+  opacity: 1;
+  transition: opacity 0.25s ease;
+}
+
 /* ---------- Scene Placeholders (CSS-only cinematic) ---------- */
 
 /* factory_fire — 暗红火光、烟雾、铁门轮廓 */
@@ -349,8 +364,8 @@ html, body {
   transform: translateY(-50%);
   z-index: 10;
   pointer-events: none;
-  width: 44vw;
-  max-width: 720px;
+  width: 22vw;
+  max-width: 360px;
   max-height: 65vh;
   overflow-y: auto;
   scrollbar-width: none;
@@ -361,7 +376,7 @@ html, body {
 
 #narrationLayer .narration-line {
   font-family: var(--font-narrator);
-  font-size: 22px;
+  font-size: 33px;
   line-height: 1.6;
   letter-spacing: 0.06em;
   color: rgba(232, 228, 220, 0.82);
@@ -480,14 +495,17 @@ html, body {
   transform: translateX(-50%);
   z-index: 25;
   display: none;
-  flex-direction: column;
-  align-items: center;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: stretch;
+  justify-content: center;
   gap: 10px;
   width: min(720px, 86vw);
 }
 #choiceLayer.active { display: flex; }
 
 .choice-prompt {
+  width: 100%;
   color: rgba(232, 228, 220, 0.72);
   font-family: var(--font-narrator);
   font-size: 18px;
@@ -498,7 +516,7 @@ html, body {
 }
 
 .choice-option {
-  width: 100%;
+  width: calc(50% - 5px);
   min-height: 64px;
   background: linear-gradient(90deg, rgba(5, 7, 10, 0.88), rgba(5, 7, 10, 0.58));
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -1072,11 +1090,11 @@ html, body {
 @media (max-width: 1366px) {
   #narrationLayer {
     left: 3vw;
-    width: 46vw;
-    max-width: 600px;
+    width: 23vw;
+    max-width: 300px;
   }
   #narrationLayer .narration-line {
-    font-size: 19px;
+    font-size: 28px;
   }
   #subtitleLayer {
     width: min(80vw, 800px);
@@ -1093,13 +1111,13 @@ html, body {
 @media (max-width: 768px) {
   #narrationLayer {
     left: 2vw;
-    width: 50vw;
+    width: 25vw;
     max-width: none;
     max-height: 50vh;
     top: 40%;
   }
   #narrationLayer .narration-line {
-    font-size: 15px;
+    font-size: 22px;
     padding: 2px 8px;
   }
   #subtitleLayer {
@@ -1126,6 +1144,7 @@ html, body {
     width: 90vw;
   }
   .choice-option {
+    width: calc(50% - 4px);
     padding: 12px 14px;
   }
   .choice-label {
@@ -1179,4 +1198,319 @@ html, body {
 /* ---------- speaker-tag-line for subtitle reuse ---------- */
 #subtitleLayer .speaker-tag-line {
   margin-bottom: 4px;
+}
+
+/* ========== STACKED NARRATOR — 中路堆叠旁白 ========== */
+#stackedNarrator {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 12;
+  pointer-events: none;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: min(80vw, 1000px);
+}
+#stackedNarrator.active {
+  display: flex;
+}
+
+#stackedNarrator .subtitle-line {
+  font-family: var(--font-narrator);
+  font-size: 28px;
+  line-height: 1.6;
+  letter-spacing: 0.07em;
+  text-align: center;
+  color: rgba(232, 228, 220, 0.88);
+  font-style: italic;
+  opacity: 0;
+  transform: translateY(14px);
+  animation: stackedFadeIn 0.45s ease-out forwards;
+}
+
+@keyframes stackedFadeIn {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+#stackedNarrator .subtitle-line .char {
+  opacity: 0;
+  transition: opacity 0.035s ease;
+}
+#stackedNarrator .subtitle-line .char.show {
+  opacity: 1;
+}
+#stackedNarrator .subtitle-line .char.hl {
+}
+
+/* ========== MEDIA LAYER — 图片/视频素材层 ========== */
+#mediaLayer {
+  position: absolute; top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+}
+#mediaLayer .scene-img,
+#mediaLayer .scene-video {
+  position: absolute; top: 0; left: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity var(--img-fade, 0.8s) ease;
+}
+#mediaLayer .scene-img.active,
+#mediaLayer .scene-video.active {
+  opacity: 1;
+}
+#mediaLayer .scene-img.fading,
+#mediaLayer .scene-video.fading {
+  opacity: 0;
+}
+
+/* ========== 场景速度CSS变量 ========== */
+#stage {
+  --media-speed: 1.0;
+  --text-speed: 1.0;
+  --hold-speed: 1.0;
+  --img-fade: 0.8s;
+}
+
+/* ========== DISSOLVE CANVAS — 消散粒子层 ========== */
+#dissolveCanvas {
+  position: absolute; top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 11;
+  pointer-events: none;
+}
+
+/* 雪花降级方案：CSS粒子 */
+@keyframes snowDrift {
+  0%   { opacity: 0.7; transform: translateY(0)    rotate(0deg);  }
+  50%  { opacity: 0.4; transform: translateY(60px)  rotate(90deg); }
+  100% { opacity: 0;   transform: translateY(140px) rotate(180deg); }
+}
+.snow-particle {
+  position: absolute;
+  width: 6px; height: 6px;
+  background: #ffffff;
+  border-radius: 50%;
+  filter: blur(1px);
+  animation: snowDrift 1.5s ease-in forwards;
+}
+
+/* 响应式：堆叠字幕 */
+@media (max-width: 1366px) {
+  #stackedNarrator .subtitle-line {
+    font-size: 24px;
+  }
+}
+@media (max-width: 768px) {
+  #stackedNarrator .subtitle-line {
+    font-size: 18px;
+  }
+  #stackedNarrator {
+    gap: 10px;
+    width: 88vw;
+  }
+}
+
+/* ========== DEBUG PANEL — 左侧调试面板 ========== */
+#debugPanel {
+  position: absolute;
+  left: 0; top: 0;
+  width: 280px;
+  max-height: 100vh;
+  z-index: 99;
+  background: rgba(6, 8, 14, 0.92);
+  border-right: 1px solid rgba(255,255,255,0.08);
+  backdrop-filter: blur(12px);
+  font-family: "Courier New", "Source Code Pro", monospace;
+  font-size: 12px;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  transition: width 0.25s ease;
+  overflow: hidden;
+}
+#debugPanel.collapsed {
+  width: 36px;
+}
+#debugPanel.collapsed .dbg-body,
+#debugPanel.collapsed .dbg-title {
+  display: none;
+}
+
+.dbg-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  flex-shrink: 0;
+}
+.dbg-title {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--medical);
+}
+.dbg-toggle {
+  width: 22px; height: 22px;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.1);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  text-align: center;
+  padding: 0;
+  border-radius: 2px;
+  transition: all 0.2s;
+}
+.dbg-toggle:hover {
+  border-color: rgba(255,255,255,0.25);
+  color: var(--text);
+}
+
+.dbg-body {
+  padding: 8px 10px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.08) transparent;
+}
+.dbg-body::-webkit-scrollbar { width: 4px; }
+.dbg-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+
+.dbg-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dbg-label {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: rgba(143,152,163,0.5);
+  text-transform: uppercase;
+}
+.dbg-select {
+  width: 100%;
+  padding: 5px 8px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  border-radius: 2px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.dbg-select:focus {
+  border-color: var(--amber);
+}
+.dbg-select option {
+  background: #0c1016;
+  color: var(--text);
+  padding: 4px;
+}
+.dbg-select optgroup {
+  font-style: normal;
+  color: var(--medical);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}
+
+.dbg-info {
+  padding: 3px 6px;
+  background: rgba(255,255,255,0.03);
+  border-left: 2px solid var(--medical);
+  color: var(--text);
+  font-size: 11px;
+  min-height: 18px;
+}
+
+.dbg-state {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.dbg-state .dbg-var {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1px 4px;
+  font-size: 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.02);
+}
+.dbg-state .dbg-var-name {
+  color: rgba(143,152,163,0.6);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-right: 6px;
+}
+.dbg-state .dbg-var-val {
+  color: var(--text);
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.dbg-state .dbg-var-val.good { color: var(--medical); }
+.dbg-state .dbg-var-val.warn { color: var(--amber); }
+.dbg-state .dbg-var-val.bad  { color: var(--danger); }
+
+.dbg-actions {
+  flex-direction: row !important;
+  gap: 6px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(255,255,255,0.04);
+}
+.dbg-btn {
+  flex: 1;
+  padding: 5px 0;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: var(--muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  border-radius: 2px;
+  transition: all 0.2s;
+}
+.dbg-btn:hover {
+  border-color: rgba(255,255,255,0.2);
+  color: var(--text);
+  background: rgba(255,255,255,0.07);
+}
+
+/* 调试面板呼吸提示 */
+@keyframes dbgHintPulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.7; }
+}
+#debugPanel .dbg-title {
+  animation: dbgHintPulse 3s ease-in-out infinite;
+}
+
+/* 小屏幕下调试面板缩小 */
+@media (max-width: 900px) {
+  #debugPanel {
+    width: 220px;
+    font-size: 10px;
+  }
+  #debugPanel.collapsed {
+    width: 28px;
+  }
 }

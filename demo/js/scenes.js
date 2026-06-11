@@ -1,42 +1,17 @@
 /* ============================================================
-   scenes.js — 《生命守护者》数据驱动场景系统
-   剧情顺序严格按 场景故事线.md + 第一章互动系统表.md
-   所有跳转由 next / choices / condition 驱动
+   scenes.js — 《生命守护者》数据驱动场景系统 v2
+   每个节点可配置 images/videos/sounds 各2个槽位
+   URL为空则不加载 · 时间戳自由设置 · CSS控制播放速度
    ============================================================ */
 
-/* ========== 资源表（素材替换只需改这里） ========== */
-const ASSETS = {
-  prologue_factory:    { image: "assets/images/prologue_factory.jpg",    fallback: "factory_fire" },
-  prologue_hands:      { image: "assets/images/prologue_hands.jpg",      fallback: "rain_road" },
-  prologue_phone:      { image: "assets/images/prologue_phone.jpg",      fallback: "rain_road" },
-  prologue_rain:       { image: "assets/images/prologue_rain.jpg",       fallback: "subway_canopy" },
-  choice_1:            { image: "assets/images/choice_1.jpg",            fallback: "rain_road" },
-  enter_circle:        { image: "assets/images/enter_circle.jpg",        fallback: "subway_canopy" },
-  film_first:          { image: "assets/images/film_first.jpg",          fallback: "subway_canopy" },
-  check_response:      { image: "assets/images/check_response.jpg",      fallback: "subway_canopy" },
-  start_cpr:           { image: "assets/images/start_cpr.jpg",           fallback: "cpr_closeup" },
-  wait_breath:         { image: "assets/images/wait_breath.jpg",         fallback: "subway_canopy" },
-  scam_whisper:        { image: "assets/images/scam_whisper.jpg",        fallback: "subway_canopy" },
-  name_witness:        { image: "assets/images/name_witness.jpg",        fallback: "subway_canopy" },
-  crowd_film:          { image: "assets/images/crowd_film.jpg",          fallback: "subway_canopy" },
-  cpr_first_push:      { image: "assets/images/cpr_first_push.jpg",      fallback: "cpr_closeup" },
-  cpr_rhythm:          { image: "assets/images/cpr_rhythm.jpg",          fallback: "cpr_closeup" },
-  cpr_fatigue:         { image: "assets/images/cpr_fatigue.jpg",         fallback: "cpr_closeup" },
-  let_others:          { image: "assets/images/let_others.jpg",          fallback: "cpr_closeup" },
-  keep_going:          { image: "assets/images/keep_going.jpg",          fallback: "cpr_closeup" },
-  family_accuse:       { image: "assets/images/family_accuse.jpg",       fallback: "subway_canopy" },
-  kept_working:        { image: "assets/images/kept_working.jpg",        fallback: "subway_canopy" },
-  stop_explain:        { image: "assets/images/stop_explain.jpg",        fallback: "subway_canopy" },
-  aed_arrival:         { image: "assets/images/aed_arrival.jpg",         fallback: "aed_protocol" },
-  aed_protocol_start:  { image: "assets/images/aed_protocol_start.jpg",  fallback: "aed_protocol" },
-  aed_clear_space:     { image: "assets/images/aed_clear_space.jpg",     fallback: "aed_protocol" },
-  aed_execute:         { image: "assets/images/aed_execute.jpg",         fallback: "aed_protocol" },
-  ambulance:           { image: "assets/images/ambulance.jpg",           fallback: "rain_road" },
-  aed_map:             { image: "assets/images/aed_map.jpg",             fallback: "aed_map" },
-  chapter_review:      { image: null,                                    fallback: "aed_map" }
-};
+/* ========== 素材槽位模板 ==========
+   每个节点：
+     assets.images[]  — 图片槽 (url空=不加载, startTime/endTime 秒)
+     assets.videos[]  — 视频槽 (同)
+     assets.sounds[]  — 声音槽 (type: bgm|sfx|voice)
+     speed            — CSS变量覆盖 { media, text, hold }
+   ============================================================ */
 
-/* ========== 场景数据 ========== */
 const SCENES = {
 
   // ==================== 序幕 ====================
@@ -47,8 +22,22 @@ const SCENES = {
     title: "抹不掉的浓烟",
     stage: "factory_fire",
     mode: "narration",
-    audio: { ambience: "silence" },
     reviewTags: ["序幕"],
+    assets: {
+      images: [
+        { url: "", cssClass: "bg-main",     startTime: 0, endTime: 0 },
+        { url: "", cssClass: "bg-overlay",  startTime: 0, endTime: 0 },
+      ],
+      videos: [
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+      ],
+      sounds: [
+        { url: "", type: "bgm",   startTime: 0, endTime: 0, volume: 0.6 },
+        { url: "", type: "sfx",   startTime: 0, endTime: 0, volume: 0.8 },
+      ],
+    },
+    speed: { media: 1.0, text: 1.0, hold: 1.0 },
     lines: [
       { text: "三年前，他在另一场火里退后了一步。", hl: ["三年前", "退后了一步"] },
       { text: "那个人的脸，他到现在还记得。", hl: ["到现在还记得"] },
@@ -69,8 +58,22 @@ const SCENES = {
     stage: "rain_road",
     mode: "narration",
     rain: true,
-    audio: { ambience: "rain_heavy" },
     reviewTags: ["序幕"],
+    assets: {
+      images: [
+        { url: "", cssClass: "bg-main",    startTime: 0, endTime: 0 },
+        { url: "", cssClass: "bg-detail",  startTime: 0, endTime: 0 },
+      ],
+      videos: [
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+      ],
+      sounds: [
+        { url: "", type: "bgm",   startTime: 0, endTime: 0, volume: 0.6 },
+        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.4 },
+      ],
+    },
+    speed: { media: 1.0, text: 1.0, hold: 1.0 },
     lines: [
       { text: "后来他换了很多工作，也换了城市。", hl: ["换了很多工作", "换了城市"] },
       { text: "来临江三年，送外卖是第7份工作。", hl: ["第7份工作"] },
@@ -90,8 +93,22 @@ const SCENES = {
     stage: "rain_road",
     mode: "narration",
     rain: true,
-    audio: { ambience: "rain_heavy" },
     reviewTags: ["序幕"],
+    assets: {
+      images: [
+        { url: "", cssClass: "bg-split-left",  startTime: 0, endTime: 0 },
+        { url: "", cssClass: "bg-split-right", startTime: 0, endTime: 0 },
+      ],
+      videos: [
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+      ],
+      sounds: [
+        { url: "", type: "bgm", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "", type: "sfx", startTime: 0, endTime: 0, volume: 1.0 },
+      ],
+    },
+    speed: { media: 1.0, text: 1.0, hold: 1.0 },
     lines: [
       { text: "今天，他只是一个想把最后一份外卖准时送到、", hl: ["准时送到"] },
       { text: "不被扣钱的普通人。", hl: ["普通人"] },
@@ -107,12 +124,30 @@ const SCENES = {
     stage: "subway_canopy",
     mode: "narration",
     rain: true,
-    audio: { ambience: "rain_heavy", sfx: ["crowd_murmur"] },
     reviewTags: ["序幕"],
+    assets: {
+      images: [
+        { url: "", cssClass: "bg-wide",   startTime: 0, endTime: 0 },
+        { url: "", cssClass: "bg-detail", startTime: 3, endTime: 0 },
+      ],
+      videos: [
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+      ],
+      sounds: [
+        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.8 },
+      ],
+    },
+    speed: { media: 1.0, text: 1.0, hold: 1.0 },
     lines: [
       { text: "21:17，台风银杏登陆第三个小时。", hl: ["21:17", "台风银杏"] },
       { text: "临江市120接警量超过平时的3倍。", hl: ["120", "3倍"] },
       { text: "倒计时，开始。", hl: ["倒计时"] }
+    ],
+    nextLines: [
+      { mode: "narration", text: "人群外侧，地铁保安马志国正张开手臂往后退外围——\"退一步，留出空间，别挤。\"他缺了一截的左手无名指在灯光下格外显眼，退伍兵的习惯让他先把秩序管起来，但他还没敢走到圆心。", hl: ["张开手臂", "退伍兵"] },
+      { mode: "narration", text: "人群前排，护理实习生林小雨已蹲下来透过人缝看老人的脸色。她的嘴唇动了动，但导师那句\"院外别乱动\"像一道锁扣在喉咙上。她的手伸进包里，摸到了手机——她其实已经输了120，只是还没按下拨出键。", hl: ["护理实习生", "输了120", "还没按下拨出键"] }
     ],
     next: "choice_1"
   },
@@ -126,30 +161,30 @@ const SCENES = {
     stage: "rain_road",
     mode: "choice",
     rain: true,
-    audio: { ambience: "rain_heavy", sfx: ["brake"] },
     reviewTags: ["选择点1"],
+    assets: {
+      images: [
+        { url: "", cssClass: "bg-main",   startTime: 0, endTime: 0 },
+        { url: "", cssClass: "bg-circle", startTime: 2, endTime: 0 },
+      ],
+      videos: [
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+      ],
+      sounds: [
+        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.8 },
+      ],
+    },
+    speed: { media: 1.0, text: 1.0, hold: 1.0 },
     lines: [
       { text: "王远猛地捏死刹车，电动车在湿滑的地面上甩尾停下。", hl: ["猛地捏死刹车"] },
       { text: "他看着那个围成圆圈的人群，", hl: ["围成圆圈"] },
       { text: "三年前那场大火的浓烟仿佛又在眼前升起。", hl: ["又在眼前升起"] }
     ],
     choices: [
-      {
-        key: "A",
-        label: "挤进圆心",
-        desc: "更快接近患者，延误较少。",
-        risk: null,
-        next: "enter_circle",
-        effects: { press_start_delay: 5, witness_credibility: 1, _pathLabel: "choice_1:A" }
-      },
-      {
-        key: "B",
-        label: "举起手机",
-        desc: "留下证据，但会增加延误与传播风险。",
-        risk: "延误+12秒，舆论扩散+2",
-        next: "film_first",
-        effects: { press_start_delay: 12, public_spread: 2, _pathLabel: "choice_1:B" }
-      }
+      { key: "A", label: "挤进圆心",   desc: "更快接近患者，延误较少。",               risk: null,               next: "enter_circle", effects: { press_start_delay: 5,  witness_credibility: 1, _pathLabel: "choice_1:A" } },
+      { key: "B", label: "举起手机",   desc: "留下证据，但会增加延误与传播风险。",     risk: "延误+12秒，舆论扩散+2", next: "film_first",   effects: { press_start_delay: 12, public_spread: 2,       _pathLabel: "choice_1:B" } }
     ]
   },
 
@@ -164,6 +199,21 @@ const SCENES = {
     rain: true,
     speaker: "王远",
     reviewTags: ["第一阶段"],
+    assets: {
+      images: [
+        { url: "", cssClass: "bg-kneel",   startTime: 0, endTime: 0 },
+        { url: "", cssClass: "bg-face",    startTime: 3, endTime: 0 },
+      ],
+      videos: [
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+      ],
+      sounds: [
+        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.7 },
+      ],
+    },
+    speed: { media: 1.0, text: 1.0, hold: 1.0 },
     lines: [
       { text: "让让！别堵着！给他留出空间，别挡急救！", hl: ["留出空间"] }
     ],
@@ -182,17 +232,32 @@ const SCENES = {
   film_first: {
     id: "film_first",
     chapter: "第一章",
-    title: "先打开手机录像",
+    title: "先固定现场证据",
     stage: "subway_canopy",
     mode: "narration",
     rain: true,
     reviewTags: ["第一阶段"],
+    assets: {
+      images: [
+        { url: "", cssClass: "bg-phone",   startTime: 0, endTime: 0 },
+        { url: "", cssClass: "bg-kneel",   startTime: 3, endTime: 0 },
+      ],
+      videos: [
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+      ],
+      sounds: [
+        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.7 },
+      ],
+    },
+    speed: { media: 1.0, text: 1.0, hold: 1.0 },
     lines: [
-      { text: "王远心里一惊，下意识地掏出手机，拉开录像功能，高举过头顶。他一边拍，一边往里挤。", hl: ["高举过头顶"] }
+      { text: "王远掏出手机，快速打开录像，压低镜头对准雨棚入口和外侧街道的交界处——不拍人脸，只拍环境位置和围观范围。", hl: ["压低镜头", "不拍人脸", "只拍环境"] }
     ],
     nextLines: [
       { mode: "dialogue", speaker: "旁观者", text: "拍下来也好，至少把时间线留住，省得一会儿谁都说不清。", hl: ["时间线留住"] },
-      { mode: "narration", text: "我不是在拍什么证据。我是怕……怕自己又变成三年前那个站在门外看的人。有个镜头顶着，我就退不回去了。", hl: ["退不回去"] }
+      { mode: "narration", text: "我不是在拍什么证据。我是怕……怕自己又变成三年前那个站在门外看的人。留个客观记录，我就退不回去了。", hl: ["客观记录", "退不回去"] }
     ],
     next: "check_response"
   },
@@ -207,6 +272,21 @@ const SCENES = {
     mode: "narration",
     rain: true,
     reviewTags: ["第二阶段"],
+    assets: {
+      images: [
+        { url: "", cssClass: "bg-check",   startTime: 0, endTime: 0 },
+        { url: "", cssClass: "bg-breath",  startTime: 4, endTime: 0 },
+      ],
+      videos: [
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+      ],
+      sounds: [
+        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "", type: "sfx",     startTime: 4, endTime: 0, volume: 0.6 },
+      ],
+    },
+    speed: { media: 1.0, text: 1.0, hold: 1.0 },
     lines: [
       { text: "圆心在雨棚内侧，远离车流和深水；他跪到老人肩侧，轻拍双肩：\"大爷，能听到我吗？\"", hl: ["雨棚内侧", "车流", "深水", "轻拍双肩"], important: true },
       { text: "没有反应。王远没有去摸脉搏，只盯住胸廓和鼻口。", hl: ["没有反应", "没有去摸脉搏", "胸廓"], important: true },
@@ -218,22 +298,8 @@ const SCENES = {
       { mode: "dialogue", speaker: "林小雨", text: "濒死叹息……应该按压。", hl: ["濒死叹息"], note: "声音小到连她自己都不太敢听见，瞬间被暴雨吞没。" }
     ],
     choices: [
-      {
-        key: "A",
-        label: "当成骤停",
-        desc: "没有正常呼吸，或只有濒死叹息，就按心脏骤停处理。",
-        risk: "承担误判压力",
-        next: "start_cpr",
-        effects: { _pathLabel: "choice_2:A" }
-      },
-      {
-        key: "B",
-        label: "再等一口气",
-        desc: "也许那一下抽动是呼吸。",
-        risk: "延误约22秒",
-        next: "wait_breath",
-        effects: { false_wait_penalty: 22, _pathLabel: "choice_2:B" }
-      }
+      { key: "A", label: "当成骤停",   desc: "没有正常呼吸，或只有濒死叹息，就按心脏骤停处理。", risk: "承担误判压力",     next: "start_cpr",   effects: { _pathLabel: "choice_2:A" } },
+      { key: "B", label: "再等一口气", desc: "也许那一下抽动是呼吸。",                           risk: "延误约22秒",       next: "wait_breath", effects: { false_wait_penalty: 22, _pathLabel: "choice_2:B" } }
     ]
   },
 
@@ -248,6 +314,21 @@ const SCENES = {
     rain: true,
     speaker: "王远",
     reviewTags: ["第二阶段"],
+    assets: {
+      images: [
+        { url: "", cssClass: "bg-cpr-find",  startTime: 0, endTime: 0 },
+        { url: "", cssClass: "bg-cpr-hands", startTime: 2, endTime: 0 },
+      ],
+      videos: [
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+      ],
+      sounds: [
+        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.6 },
+      ],
+    },
+    speed: { media: 1.0, text: 1.0, hold: 1.0 },
     lines: [
       { text: "没有正常呼吸，或只有濒死叹息，就按心脏骤停处理。", hl: ["没有正常呼吸", "濒死叹息", "心脏骤停"], important: true }
     ],
@@ -268,6 +349,21 @@ const SCENES = {
     mode: "narration",
     rain: true,
     reviewTags: ["第二阶段"],
+    assets: {
+      images: [
+        { url: "", cssClass: "bg-wait",    startTime: 0, endTime: 0 },
+        { url: "", cssClass: "bg-lips",    startTime: 3, endTime: 0 },
+      ],
+      videos: [
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+      ],
+      sounds: [
+        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.5 },
+      ],
+    },
+    speed: { media: 1.0, text: 1.0, hold: 1.0 },
     lines: [
       { text: "王远犹豫了。万一人家只是顺了口气呢？", hl: ["犹豫"] },
       { text: "自己一掌拍下去把人按坏了怎么办？", hl: ["把人按坏了"] },
@@ -291,8 +387,22 @@ const SCENES = {
     mode: "narration",
     rain: true,
     cprFlash: true,
-    audio: { ambience: "rain_heavy" },
     reviewTags: ["第三阶段"],
+    assets: {
+      images: [
+        { url: "", cssClass: "bg-push",     startTime: 0, endTime: 0 },
+        { url: "", cssClass: "bg-push-close", startTime: 2, endTime: 0 },
+      ],
+      videos: [
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+      ],
+      sounds: [
+        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.7 },
+      ],
+    },
+    speed: { media: 1.0, text: 1.0, hold: 1.0 },
     lines: [
       { text: "掌根找准胸部中央、胸骨下半部的位置，全身力量轰然下压。", hl: ["胸部中央", "胸骨下半部", "轰然下压"], important: true },
       { text: "成人按压深度约5-6厘米；压下去，也要让胸廓完全回弹。", hl: ["5-6厘米", "完全回弹"], important: true },
@@ -312,6 +422,21 @@ const SCENES = {
     mode: "narration",
     rain: true,
     reviewTags: ["第三阶段"],
+    assets: {
+      images: [
+        { url: "", cssClass: "bg-whisper",  startTime: 0, endTime: 0 },
+        { url: "", cssClass: "bg-crowd",    startTime: 2, endTime: 0 },
+      ],
+      videos: [
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+      ],
+      sounds: [
+        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.6 },
+      ],
+    },
+    speed: { media: 1.0, text: 1.0, hold: 1.0 },
     lines: [
       { text: "第一下按压已经下去了。雨越下越大。", hl: ["第一下按压已经下去"] },
       { text: "周围的窃窃私语像潮水一样涌来：", hl: ["窃窃私语"] },
@@ -320,22 +445,8 @@ const SCENES = {
       { text: "这些话像针一样扎在王远背上。", hl: ["像针一样扎"] }
     ],
     choices: [
-      {
-        key: "A",
-        label: "点名那几个人",
-        desc: "将围观者拉入分工，建立信任同盟。",
-        risk: null,
-        next: "name_witness",
-        effects: { resource_activation: "witness", witness_credibility: 2, _pathLabel: "choice_3:A" }
-      },
-      {
-        key: "B",
-        label: "让手机记录一切",
-        desc: "留下时间线证据，但可能滑向传播围观。",
-        risk: "舆论扩散+2",
-        next: "crowd_film",
-        effects: { resource_activation: "record", public_spread: 2, _pathLabel: "choice_3:B" }
-      }
+      { key: "A", label: "点名那几个人",     desc: "将围观者拉入分工，建立信任同盟。",   risk: null,             next: "name_witness", effects: { resource_activation: "witness", witness_credibility: 2, _pathLabel: "choice_3:A" } },
+      { key: "B", label: "让手机记录一切",   desc: "留下时间线证据，但可能滑向传播围观。", risk: "舆论扩散+2",     next: "crowd_film",   effects: { resource_activation: "record",  public_spread: 2,        _pathLabel: "choice_3:B" } }
     ]
   },
 
@@ -349,17 +460,28 @@ const SCENES = {
     mode: "dialogue",
     rain: true,
     speaker: "王远",
-    reviewTags: ["第三阶段", "点名分工"],
     interaction: "assign",
+    reviewTags: ["第三阶段", "点名分工"],
+    assets: {
+      images: [
+        { url: "", cssClass: "bg-point",    startTime: 0, endTime: 0 },
+        { url: "", cssClass: "bg-alliance", startTime: 5, endTime: 0 },
+      ],
+      videos: [
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+      ],
+      sounds: [
+        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.7 },
+      ],
+    },
+    speed: { media: 1.0, text: 1.0, hold: 1.0 },
     lines: [
       { text: "灰西装先生！就是你，请你帮个忙，立刻打120，开免提！", hl: ["灰西装先生", "打120", "开免提"] }
     ],
     nextLines: [
-      { mode: "dialogue", speaker: "孙建国", text: "啊？我？", hl: ["啊？"], note: "手一抖，被当众点名，身体比脑子快，颤抖着掏出手机。" },
-      { mode: "dialogue", speaker: "王远", text: "保安师傅！麻烦你马上去站里找AED，有就立刻拿过来！救命的！", hl: ["AED", "立刻拿过来"] },
-      { mode: "narration", text: "马志国咬牙——\"好！我这就去！\"退伍军人的本能被唤醒，转身穿过雨棚边缘，直冲站内安检口。", hl: ["退伍军人", "直冲站内安检口"] },
-      { mode: "dialogue", speaker: "王远", text: "白衬衫姑娘，请你帮我看着时间，也请你替我作证，我是路过救人！", hl: ["替我作证", "路过救人"] },
-      { mode: "narration", text: "王远用一根无形的线，把围观的\"看客\"强行拉成了\"同盟\"。", hl: ["看客", "同盟"] }
+      { mode: "narration", text: "他又转向人群——保安师傅、白衬衫姑娘……三个陌生人，三双躲闪的眼睛。点名是打破冷漠的第一箭。", hl: ["点名", "打破冷漠的第一箭"] }
     ],
     next: "cpr_rhythm",
     onEnter: { assignMode: true, effects: { aed_arrival_timing: "early", witness_credibility: 2 } }
@@ -376,15 +498,31 @@ const SCENES = {
     rain: true,
     speaker: "王远",
     reviewTags: ["第三阶段", "路人录像"],
+    assets: {
+      images: [
+        { url: "", cssClass: "bg-phones",   startTime: 0, endTime: 0 },
+        { url: "", cssClass: "bg-stars",    startTime: 2, endTime: 0 },
+      ],
+      videos: [
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+      ],
+      sounds: [
+        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.6 },
+      ],
+    },
+    speed: { media: 1.0, text: 1.0, hold: 1.0 },
     lines: [
-      { text: "有没有人帮我留个全景！把倒地经过、谁在现场都拍清楚！", hl: ["留个全景", "拍清楚"] }
+      { text: "有没有人帮我留个全景！把倒地经过、谁在现场都拍清楚——不要拍患者的脸！", hl: ["留个全景", "不要拍患者的脸"] }
     ],
     nextLines: [
-      { mode: "narration", text: "围观者中立刻举起了五六部手机。有人对准老人倒地位置，也有人顺手推成直播。闪光灯在黑夜里像碎掉的星星。", hl: ["碎掉的星星"] },
+      { mode: "narration", text: "林小雨终于不再僵着——她一边掏出手机拨120，一边回头对人群喊：\"有没有人去过站厅？AED柜在安检口左边！\"马志国像是被电了一下，猛转身冲进站内。", hl: ["拨120", "AED柜", "安检口左边"] },
       { mode: "narration", text: "\"这外卖小哥演的吧？\"\"真的假的，临江暴雨大秀吗？\"\"万一被讹上就搞笑了，支持小哥留证。\"", hl: ["演的吧", "大秀", "留证"] },
       { mode: "narration", text: "留证本是为了固定时间线，但一旦有人推向公开传播，现场就从\"互相证明\"滑向\"集体围观\"。", hl: ["互相证明", "集体围观"] }
     ],
-    next: "cpr_rhythm"
+    next: "cpr_rhythm",
+    onEnter: { effects: { aed_arrival_timing: "mid", witness_credibility: 0, public_spread: 3 } }
   },
 
   // ==================== 核心 · cpr_rhythm ====================
@@ -399,6 +537,21 @@ const SCENES = {
     cprFlash: true,
     interaction: "cpr",
     reviewTags: ["第四阶段", "CPR"],
+    assets: {
+      images: [
+        { url: "", cssClass: "bg-rhythm-1",  startTime: 0, endTime: 0 },
+        { url: "", cssClass: "bg-rhythm-2",  startTime: 3, endTime: 0 },
+      ],
+      videos: [
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+      ],
+      sounds: [
+        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.6 },
+      ],
+    },
+    speed: { media: 1.0, text: 1.0, hold: 1.0 },
     lines: [
       { text: "01帧：咬紧牙关、汗水与雨水混合的脸。", hl: ["咬紧牙关"] },
       { text: "02帧：手背上暴起的青筋。", hl: ["暴起的青筋"] },
@@ -422,28 +575,29 @@ const SCENES = {
     speaker: "王远",
     vignette: true,
     reviewTags: ["第四阶段"],
+    assets: {
+      images: [
+        { url: "", cssClass: "bg-fatigue",   startTime: 0, endTime: 0 },
+        { url: "", cssClass: "bg-exhaust",   startTime: 2, endTime: 0 },
+      ],
+      videos: [
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+      ],
+      sounds: [
+        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.6 },
+      ],
+    },
+    speed: { media: 1.0, text: 1.0, hold: 1.0 },
     lines: [
       { text: "我快撑不住了……", hl: ["撑不住了"] },
       { text: "不是因为什么高尚的英雄主义，", hl: ["不是英雄主义"] },
       { text: "是因为我不知道，如果我现在松手停下了，这个圈子里，还有谁愿意蹲下来接替我？", hl: ["松手停下", "还有谁愿意蹲下来"] }
     ],
     choices: [
-      {
-        key: "A",
-        label: "把手交出去",
-        desc: "交托信任，按压质量更稳。",
-        risk: "需完成交接操作",
-        next: "let_others",
-        effects: { _pathLabel: "choice_4:A" }
-      },
-      {
-        key: "B",
-        label: "咬牙硬撑",
-        desc: "维持掌控感，但更容易疲劳失准。",
-        risk: "按压质量持续下降",
-        next: "keep_going",
-        effects: { compression_quality: -10, wangyuan_burden: 1, _pathLabel: "choice_4:B" }
-      }
+      { key: "A", label: "把手交出去", desc: "交托信任，按压质量更稳。",         risk: "需完成交接操作",       next: "let_others", effects: { _pathLabel: "choice_4:A" } },
+      { key: "B", label: "咬牙硬撑",   desc: "维持掌控感，但更容易疲劳失准。",   risk: "按压质量持续下降",     next: "keep_going", effects: { compression_quality: -10, wangyuan_burden: 1, _pathLabel: "choice_4:B" } }
     ]
   },
 
@@ -459,6 +613,21 @@ const SCENES = {
     speaker: "王远",
     interaction: "takeover",
     reviewTags: ["第四阶段", "换人"],
+    assets: {
+      images: [
+        { url: "", cssClass: "bg-handoff",   startTime: 0, endTime: 0 },
+        { url: "", cssClass: "bg-together",  startTime: 3, endTime: 0 },
+      ],
+      videos: [
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+      ],
+      sounds: [
+        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.7 },
+      ],
+    },
+    speed: { media: 1.0, text: 1.0, hold: 1.0 },
     lines: [
       { text: "兄弟！来帮一把！我数到三，我一撤，你立刻压下去，别停！", hl: ["帮一把", "数到三", "别停"] }
     ],
@@ -467,7 +636,7 @@ const SCENES = {
       { mode: "dialogue", speaker: "林小雨", text: "别抢，跟他的数。手臂别弯。", hl: ["别抢", "手臂别弯"], note: "终于往前半步，盯着年轻路人的肩膀" },
       { mode: "narration", text: "伸手不只是自己蹲下去。有时候，是把别人拉过来，教他们怎么一起蹲下去。", hl: ["把别人拉过来", "一起蹲下去"] }
     ],
-    next: "family_accuse",
+    next: "family_accuse_handoff",
     onEnter: { takeoverMode: true }
   },
 
@@ -482,6 +651,21 @@ const SCENES = {
     rain: true,
     vignette: true,
     reviewTags: ["第四阶段", "硬撑"],
+    assets: {
+      images: [
+        { url: "", cssClass: "bg-alone",     startTime: 0, endTime: 0 },
+        { url: "", cssClass: "bg-bend-arm",  startTime: 2, endTime: 0 },
+      ],
+      videos: [
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+      ],
+      sounds: [
+        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.6 },
+      ],
+    },
+    speed: { media: 1.0, text: 1.0, hold: 1.0 },
     lines: [
       { text: "王远摇了摇头，拒绝了旁人的询问。", hl: ["拒绝"] },
       { text: "他咬碎了牙，将全身的重量死死砸在老人的胸口上。", hl: ["咬碎了牙"] },
@@ -507,31 +691,76 @@ const SCENES = {
     speaker: "赵雪梅",
     shake: true,
     reviewTags: ["第五阶段", "家属冲突"],
-    audio: { ambience: "rain_heavy", sfx: ["scream", "brake"] },
+    assets: {
+      images: [
+        { url: "", cssClass: "bg-rush-in",   startTime: 0, endTime: 0 },
+        { url: "", cssClass: "bg-red-rope",  startTime: 4, endTime: 0 },
+      ],
+      videos: [
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+      ],
+      sounds: [
+        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.8 },
+      ],
+    },
+    speed: { media: 1.0, text: 1.0, hold: 1.0 },
     lines: [
-      { text: "你在干什么？！你是谁？！", hl: ["你是谁"] },
-      { text: "你把我爸怎么了？！是不是你撞的他？！", hl: ["是不是你撞的"] }
+      { text: "让开！让开！那是我爸——", hl: ["那是我爸"] },
+      { text: "你在干什么？！你是谁？！", hl: ["你是谁"] }
     ],
     nextLines: [
+      { mode: "narration", text: "赵雪梅冲进来时先看到了雨棚外歪倒的电动车——黄色外卖箱翻在积水里。旁边一个中年女人拽住她小声说：\"你是不是家属？那边有个送外卖的在你爸身边蹲着，不知道是不是撞倒的……\"赵雪梅的脸瞬间白了。", hl: ["电动车", "黄色外卖箱", "是不是撞倒的"] },
+      { text: "你把我爸怎么了？！是不是你撞的他？！", mode: "dialogue", speaker: "赵雪梅", hl: ["是不是你撞的"] },
       { mode: "narration", text: "王远余光扫到老人左手腕上的红绳——赵雪梅腕上也有一根一样的。他突然明白，拉扯他的不是恶意，是一个女儿快要失去父亲时的恐惧。", hl: ["红绳", "快要失去父亲时的恐惧"] }
     ],
     choices: [
-      {
-        key: "A",
-        label: "不停手",
-        desc: "保住按压连续性，依靠已建立的信任网络。",
-        risk: null,
-        next: "kept_working",
-        effects: { compression_interrupt_time: 0, family_trust: 1, _pathLabel: "choice_5:A" }
-      },
-      {
-        key: "B",
-        label: "停下解释",
-        desc: "争取澄清误会，但会造成致命中断。",
-        risk: "按压中断+24秒，心理负担+3",
-        next: "stop_explain",
-        effects: { compression_interrupt_time: 24, wangyuan_burden: 3, family_trust: -1, _pathLabel: "choice_5:B" }
-      }
+      { key: "A", label: "不停手",     desc: "保住按压连续性，依靠已建立的信任网络。",   risk: null,                     next: "kept_working", effects: { compression_interrupt_time: 0,  family_trust: 1,  _pathLabel: "choice_5:A" } },
+      { key: "B", label: "停下解释",   desc: "争取澄清误会，但会造成致命中断。",         risk: "按压中断+24秒，心理负担+3", next: "stop_explain",  effects: { compression_interrupt_time: 24, wangyuan_burden: 3, family_trust: -1, _pathLabel: "choice_5:B" } }
+    ]
+  },
+
+  // ==================== 家属冲突 · 已交接版本 ====================
+
+  family_accuse_handoff: {
+    id: "family_accuse_handoff",
+    chapter: "第一章",
+    title: "恐惧扭曲的面孔",
+    stage: "subway_canopy",
+    mode: "dialogue",
+    rain: true,
+    speaker: "赵雪梅",
+    shake: true,
+    reviewTags: ["第五阶段", "家属冲突", "已交接"],
+    assets: {
+      images: [
+        { url: "", cssClass: "bg-rush-in",   startTime: 0, endTime: 0 },
+        { url: "", cssClass: "bg-red-rope",  startTime: 4, endTime: 0 },
+      ],
+      videos: [
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+      ],
+      sounds: [
+        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.8 },
+      ],
+    },
+    speed: { media: 1.0, text: 1.0, hold: 1.0 },
+    lines: [
+      { text: "让开！让开！那是我爸——", hl: ["那是我爸"] },
+      { text: "你们在干什么？！你们是谁？！", hl: ["你们是谁"] }
+    ],
+    nextLines: [
+      { mode: "narration", text: "赵雪梅冲进来时先看到了雨棚外歪倒的电动车——黄色外卖箱翻在积水里。旁边一个中年女人拽住她小声说：\"你是不是家属？那边有个送外卖的在你爸身边，不知道是不是撞倒的……\"赵雪梅的脸瞬间白了。", hl: ["电动车", "黄色外卖箱", "是不是撞倒的"] },
+      { mode: "narration", text: "她拨开人群，看到一个年轻人正拼命按压父亲的胸口，节奏急促但稳定。旁边站着一个穿外卖雨衣的男人——王远——正弯腰盯着年轻人的手，嘴里仍在数着节拍。老人家左手腕的红绳和赵雪梅腕上的那根一模一样。", hl: ["红绳"] },
+      { text: "你把我爸怎么了？！是不是你撞的他？！", mode: "dialogue", speaker: "赵雪梅", hl: ["是不是你撞的"] },
+      { mode: "narration", text: "年轻路人的手没有停，但肩膀已经开始发抖——突如其来的叫骂让他的节奏乱了半拍。王远没有退开，反而站到路人背后，压低声音稳住节奏。", hl: ["节奏乱了半拍", "稳住节奏"] }
+    ],
+    choices: [
+      { key: "A", label: "让路人继续按", desc: "不让按压中断，你去拦住家属解释。",       risk: null,                     next: "kept_working", effects: { compression_interrupt_time: 0,  family_trust: 1,  _pathLabel: "choice_5:A" } },
+      { key: "B", label: "叫路人也停手", desc: "先停手澄清误会，但按压中断是最坏的后果。", risk: "按压中断+24秒，心理负担+3", next: "stop_explain",  effects: { compression_interrupt_time: 24, wangyuan_burden: 3, family_trust: -1, _pathLabel: "choice_5:B" } }
     ]
   },
 
@@ -546,13 +775,28 @@ const SCENES = {
     rain: true,
     speaker: "王远",
     reviewTags: ["第五阶段", "继续按压"],
+    assets: {
+      images: [
+        { url: "", cssClass: "bg-keep-cpr",  startTime: 0, endTime: 0 },
+        { url: "", cssClass: "bg-witnesses", startTime: 3, endTime: 0 },
+      ],
+      videos: [
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+      ],
+      sounds: [
+        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.7 },
+      ],
+    },
+    speed: { media: 1.0, text: 1.0, hold: 1.0 },
     lines: [
-      { text: "大姐！别碰我！我在救他的命！", hl: ["别碰我", "救他的命"] }
+      { text: "大姐！别碰！我们在救他的命！", hl: ["别碰", "救他的命"] }
     ],
     nextLines: [
       { mode: "dialogue", speaker: "林小雨", text: "大姐！我是护理实习生，我学过急救！我从刚开始就一直看着，这位大哥是路过救人的！你爸现在像是心脏骤停，最怕的就是按压断掉！", hl: ["护理实习生", "心脏骤停", "按压断掉"] },
       { mode: "dialogue", speaker: "孙建国", text: "对！120全程在听着呢，是我报的警！", hl: ["120全程在听"] },
-      { mode: "narration", text: "赵雪梅僵在原地，手缓缓松开。她看着这个浑身湿透、拼命按压的陌生外卖员——在这个冰冷的雨夜，这个陌生人可能比她更想让她父亲活下去。", hl: ["这个陌生人可能比她更想让她父亲活下去"] }
+      { mode: "narration", text: "赵雪梅僵在原地，手缓缓松开。她看着这个浑身湿透的外卖员，和那个被他教会按压的年轻人——在这个冰冷的雨夜，这几个陌生人可能比她更想让她父亲活下去。", hl: ["这几个陌生人可能比她更想让她父亲活下去"] }
     ],
     next: "aed_protocol_start",
     onEnter: { effects: { wangyuan_burden: -1, family_trust: 2 } }
@@ -569,15 +813,73 @@ const SCENES = {
     rain: true,
     speaker: "王远",
     reviewTags: ["第五阶段", "停止按压"],
+    assets: {
+      images: [
+        { url: "", cssClass: "bg-stop",      startTime: 0, endTime: 0 },
+        { url: "", cssClass: "bg-still",     startTime: 2, endTime: 0 },
+      ],
+      videos: [
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+      ],
+      sounds: [
+        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.6 },
+      ],
+    },
+    speed: { media: 1.0, text: 1.0, hold: 1.0 },
     lines: [
       { text: "大姐，你冷静点！我不是肇事的人，", hl: ["冷静点"] },
       { text: "我只是个送外卖的，路过看到他倒地才过来帮忙的……", hl: ["送外卖的", "过来帮忙"] }
     ],
     nextLines: [
       { mode: "narration", text: "赵雪梅死死盯着王远。他停下了——他为什么心虚？赵雪梅哭得更加撕心裂肺。", hl: ["他停下了", "为什么心虚"] },
-      { mode: "narration", text: "在他们争吵、解释的这24秒里，老人的胸口一片死寂，没有一个人去按压。那是生命流逝的声音。", hl: ["24秒", "一片死寂", "生命流逝的声音"] }
+      { mode: "narration", text: "在他们争吵、解释的这24秒里，老人的胸口一片死寂，没有一个人去按压。那是生命流逝的声音。", hl: ["24秒", "一片死寂", "生命流逝的声音"] },
+      { mode: "narration", text: "王远猛然意识到自己的手离开了多久，猛地重新跪下去——\"继续按！别停！\"年轻人的手再次砸回老人胸口。中断的24秒不会回来，但还没结束的抢救不能就此停下。", hl: ["重新跪下去", "不能就此停下"] }
     ],
-    next: "aed_protocol_start"
+    next: "aed_protocol_start",
+    condition(state) {
+      if (state.false_wait_penalty > 0 && state.compression_interrupt_time >= 24) return "bad_ending";
+      return null;
+    }
+  },
+
+  // ==================== 坏结局 · bad_ending ====================
+
+  bad_ending: {
+    id: "bad_ending",
+    chapter: "第一章",
+    title: "迟到的代价",
+    stage: "subway_canopy",
+    mode: "narration",
+    rain: true,
+    vignette: true,
+    reviewTags: ["结局", "坏结局"],
+    assets: {
+      images: [
+        { url: "", cssClass: "bg-late",      startTime: 0, endTime: 0 },
+        { url: "", cssClass: "bg-shoe",      startTime: 4, endTime: 0 },
+      ],
+      videos: [
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+      ],
+      sounds: [
+        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.7 },
+      ],
+    },
+    speed: { media: 1.0, text: 1.0, hold: 1.0 },
+    lines: [
+      { text: "救护车终于赶到时，老人已经错过了最佳抢救窗口。", hl: ["错过了最佳抢救窗口"], important: true },
+      { text: "一开始的22秒犹豫。后来的24秒中断。", hl: ["22秒", "24秒"], important: true },
+      { text: "加起来不到一分钟——但对一颗停跳的心，这不是时间，这是氧气从大脑退潮的声音。", hl: ["氧气从大脑退潮"] }
+    ],
+    nextLines: [
+      { mode: "narration", text: "陈默医生什么都没说。他只是默默评估了瞳孔，然后合上了本子。王远站在雨棚边缘，电动车还歪倒在那里，外卖箱的盖子掀开着，雨水打在那条已经凉了半小时的订单上。", hl: ["合上了本子", "凉了半小时"] },
+      { mode: "narration", text: "他没有被讹。赵雪梅瘫坐在台阶上，抱着那只掉了一只的黑布鞋。她甚至没有看王远一眼。也许她后来会知道，这个外卖员是来救人的。也许不会。但在这一刻，她的世界已经塌了。", hl: ["世界已经塌了"] }
+    ],
+    next: "aed_map"
   },
 
   // ==================== AED流程 ====================
@@ -591,7 +893,21 @@ const SCENES = {
     rain: true,
     interaction: "aed",
     reviewTags: ["第六阶段", "AED"],
-    audio: { ambience: "rain_heavy" },
+    assets: {
+      images: [
+        { url: "", cssClass: "bg-aed-box",   startTime: 0, endTime: 0 },
+        { url: "", cssClass: "bg-aed-place", startTime: 2, endTime: 0 },
+      ],
+      videos: [
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+      ],
+      sounds: [
+        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.6 },
+      ],
+    },
+    speed: { media: 1.0, text: 1.0, hold: 1.0 },
     lines: [
       { text: "马志国抱着AED从站内冲回雨棚下。", hl: ["AED"] }
     ],
@@ -613,6 +929,21 @@ const SCENES = {
     rain: true,
     interaction: "aed",
     reviewTags: ["第六阶段", "AED"],
+    assets: {
+      images: [
+        { url: "", cssClass: "bg-aed-wipe",  startTime: 0, endTime: 0 },
+        { url: "", cssClass: "bg-aed-pads",  startTime: 2, endTime: 0 },
+      ],
+      videos: [
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+      ],
+      sounds: [
+        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.6 },
+      ],
+    },
+    speed: { media: 1.0, text: 1.0, hold: 1.0 },
     lines: [
       { text: "王远按调度员和AED语音提示拉开胸前衣物，林小雨快速擦干贴片要接触的区域。", hl: ["擦干贴片区域"], important: true },
       { text: "右上胸，左下胸；大家只为贴片动作让出最短空档。", hl: ["右上胸", "左下胸", "最短空档"], important: true }
@@ -633,6 +964,21 @@ const SCENES = {
     rain: true,
     interaction: "aed",
     reviewTags: ["第六阶段", "AED"],
+    assets: {
+      images: [
+        { url: "", cssClass: "bg-aed-analyze", startTime: 0, endTime: 0 },
+        { url: "", cssClass: "bg-aed-shock",   startTime: 3, endTime: 0 },
+      ],
+      videos: [
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+      ],
+      sounds: [
+        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.7 },
+      ],
+    },
+    speed: { media: 1.0, text: 1.0, hold: 1.0 },
     lines: [
       { text: "所有人后退。AED分析完成。", hl: ["所有人后退", "分析完成"], important: true }
     ],
@@ -654,8 +1000,22 @@ const SCENES = {
     stage: "rain_road",
     mode: "narration",
     rain: true,
-    audio: { ambience: "rain_heavy", sfx: ["ambulance_siren"] },
     reviewTags: ["第六阶段", "尾声"],
+    assets: {
+      images: [
+        { url: "", cssClass: "bg-ambulance", startTime: 0, endTime: 0 },
+        { url: "", cssClass: "bg-stand",     startTime: 4, endTime: 0 },
+      ],
+      videos: [
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+      ],
+      sounds: [
+        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.8 },
+      ],
+    },
+    speed: { media: 1.0, text: 1.0, hold: 1.0 },
     lines: [
       { text: "120救护车刺耳的警笛声终于撕开雨幕。", hl: ["撕开雨幕"] },
       { text: "陈默医生带着护士抬着担架冲进雨棚，迅速接管了现场。", hl: ["接管现场"] },
@@ -674,15 +1034,29 @@ const SCENES = {
     title: "城市AED地图",
     stage: "aed_map",
     mode: "narration",
-    rain: false,
     aedMap: true,
     reviewTags: ["第六阶段", "结算"],
+    assets: {
+      images: [
+        { url: "", cssClass: "bg-map-city",  startTime: 0, endTime: 0 },
+        { url: "", cssClass: "bg-map-dot",   startTime: 3, endTime: 0 },
+      ],
+      videos: [
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+      ],
+      sounds: [
+        { url: "", type: "bgm", startTime: 0, endTime: 0, volume: 0.4 },
+        { url: "", type: "sfx", startTime: 0, endTime: 0, volume: 0.5 },
+      ],
+    },
+    speed: { media: 1.0, text: 1.0, hold: 1.0 },
     lines: [
       { text: "画面从冰冷的雨夜街景渐渐抽离，", hl: ["渐渐抽离"] },
       { text: "变成一幅极简风格的、散发着科技感蓝光的\"临江市城市AED地图\"。", hl: ["城市AED地图"] },
-      { text: "一个光点亮了。", hl: ["光点亮了"] },
-      { text: "但在这座城市的地图上，还有整整十七个灰色空白区。", hl: ["十七个灰色空白区"] },
-      { text: "在那些地方，最近的AED需要跑8分钟以上。", hl: ["8分钟以上"] }
+      { text: "一个光点亮了。", hl: ["光点"] },
+      { text: "但在这座城市的地图上，还有整整十七个灰色空白区。", hl: ["十七个"] },
+      { text: "在那些地方，最近的AED需要跑8分钟以上。", hl: ["8分钟"] }
     ],
     next: "chapter_review"
   },
@@ -695,11 +1069,25 @@ const SCENES = {
     title: "章节复盘",
     stage: "aed_map",
     mode: "review",
-    rain: false,
-    reviewTags: ["复盘"],
     aedMap: true,
+    reviewTags: ["复盘"],
+    assets: {
+      images: [
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+      ],
+      videos: [
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+      ],
+      sounds: [
+        { url: "", type: "bgm", startTime: 0, endTime: 0, volume: 0.4 },
+        { url: "", type: "",    startTime: 0, endTime: 0, volume: 1.0 },
+      ],
+    },
+    speed: { media: 1.0, text: 1.0, hold: 1.0 },
     lines: [],
-    next: null  // 复盘后进入第二章预告
+    next: null
   }
 
 };

@@ -326,6 +326,22 @@ const Interactions = {
     document.getElementById("interactionLayer")?.classList.add("active");
     module.classList.add("active");
 
+    // 卡片对应的叙事反馈（点击后展示的对话/叙述）
+    const witnessNarratives = {
+      sun_jianguo: [
+        { text: "孙建国已拨打120，免提开启", type: "positive" },
+        { text: "孙建国：啊？我……好、好！", type: "neutral" }
+      ],
+      ma_zhiguo: [
+        { text: "马志国正在前往站内AED柜", type: "positive" },
+        { text: "马志国咬牙：好！我这就去！", type: "neutral" }
+      ],
+      lin_xiaoyu: [
+        { text: "林小雨开始计时并作证", type: "positive" },
+        { text: "林小雨：我在看时间，也替你作证！", type: "neutral" }
+      ]
+    };
+
     // 绑定卡片点击
     module.querySelectorAll(".assign-card").forEach(card => {
       card.addEventListener("click", () => {
@@ -334,24 +350,28 @@ const Interactions = {
         const name = card.dataset.witness;
         GameState.activateWitness(name, 2);
 
-        // 反馈
-        const feedbacks = {
-          sun_jianguo: "孙建国已拨打120，免提开启",
-          ma_zhiguo: "马志国正在前往站内AED柜",
-          lin_xiaoyu: "林小雨开始计时"
-        };
+        // 逐个显示叙事反馈
+        const narratives = witnessNarratives[name] || [];
         if (typeof window.showStateFeedback === "function") {
-          window.showStateFeedback(feedbacks[name], "positive");
+          narratives.forEach((n, idx) => {
+            setTimeout(() => {
+              window.showStateFeedback(n.text, n.type);
+            }, idx * 400);
+          });
         }
 
         // 检查是否全部分配
         const allAssigned = module.querySelectorAll(".assign-card:not(.assigned)").length === 0;
         if (allAssigned) {
           setTimeout(() => {
+            // 全部分配完毕后显示总结反馈
+            if (typeof window.showStateFeedback === "function") {
+              window.showStateFeedback("王远用一根无形的线，把围观的看客拉成了同盟", "positive");
+            }
             module.classList.remove("active");
             document.getElementById("interactionLayer")?.classList.remove("active");
             if (callback) callback();
-          }, 1200);
+          }, 1500);
         }
       });
     });
@@ -466,6 +486,30 @@ const Interactions = {
     const spreadLabel = data.social.public_spread >= 3 ? "高" : data.social.public_spread >= 1 ? "中" : "低";
     const trustLabel = data.social.family_trust >= 2 ? "恢复中" : data.social.family_trust >= 0 ? "中性" : "恶化";
 
+    // 第二章承接文案（基于实际变量）
+    const ch2_items = [];
+    // 反应速度
+    if (data.medical.press_start_delay <= 10) ch2_items.push("反应迅速——王远将成为社区急救培训的正面案例");
+    else if (data.medical.press_start_delay >= 30) ch2_items.push("进场延误严重——网络质疑他是否\"先拍再救\"");
+    else ch2_items.push("反应速度一般——现场时间线将成为舆论焦点之一");
+    // 证据质量
+    if (data.collaboration.witnesses.sun_jianguo.activated && data.collaboration.witnesses.lin_xiaoyu.activated) ch2_items.push("多人证词齐备——警方与医护认可时间线");
+    else if (data.social.public_spread >= 3) ch2_items.push("缺乏证人、高传播——王远可能面临网络暴力");
+    else ch2_items.push("证据链不完整——第二章将有澄清压力的剧情");
+    // 现场协作
+    if (data.collaboration.resource_activation === "witness") ch2_items.push("现场协作良好——王远在第二章将被社区视为组织者");
+    else ch2_items.push("单打独斗——王远需在第二章重建信任网络");
+    // 按压质量
+    if (data.medical.compression_quality >= 70) ch2_items.push("按压质量达标——医学复盘结论偏向正面");
+    else ch2_items.push("按压质量严重下降——第二章王远可能面临自我怀疑");
+    // 家属信任或心理负担
+    if (data.social.family_trust >= 2) ch2_items.push("家属信任修复——赵雪梅将在第二章主动联系王远");
+    else if (data.social.family_trust < 0) ch2_items.push("家属关系恶化——赵雪梅仍对王远存疑，纠纷未息");
+    if (data.wangyuan.burden >= 5) ch2_items.push("心理负担沉重——王远在第二章开场处于低潮期");
+    else ch2_items.push("心理状态可控——王远能较快进入第二章节奏");
+
+    const ch2Text = ch2_items.map(t => `<div class="review-item ch2-consequence">${t}</div>`).join("");
+
     layer.innerHTML = `
       <div class="review-container">
         <div class="review-title">章节复盘</div>
@@ -493,7 +537,7 @@ const Interactions = {
 
         <div class="review-section">
           <h3>第二章承接</h3>
-          <div class="review-item">王远将带着现场证词进入网络舆论事件。</div>
+          ${ch2Text}
         </div>
 
         <div class="review-chapter2">

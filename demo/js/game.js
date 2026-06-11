@@ -39,6 +39,7 @@ const Game = {
     }
     document.getElementById("narrationLayer").innerHTML = "";
     document.getElementById("subtitleLayer").innerHTML = "";
+    this._clearStackedNarrator();
     this._clearIntertitle();
     document.getElementById("navHint").style.display = "none";
     document.getElementById("stage").className = "subway_canopy";
@@ -82,43 +83,116 @@ const Game = {
 
     Interactions.cleanup();
     this._hideAllModules();
-    this._updateStage(scene);
-    this._updateRain(scene);
-    this._updateSceneLabel(scene);
-    this._hideChoices();
-    this._hideNavHint();
-    document.getElementById("narrationLayer").innerHTML = "";
-    document.getElementById("subtitleLayer").innerHTML = "";
-    this._clearIntertitle();
+    this._clearStackedNarrator();
 
-    // 场景特效
-    if (scene.shake) this._screenShake();
-    if (scene.vignette) this._showVignette();
-    else this._hideVignette();
-    if (scene.cprFlash) this._showCprFlash();
-    else this._hideCprFlash();
-    if (scene.aedMap) this._showAedDot();
-    else this._hideAedDot();
+    // 场景切换过渡：先黑入 → 加载新素材 → 黑出
+    this._sceneTransition(() => {
+      this._updateStage(scene);
+      this._updateRain(scene);
+      this._updateSceneLabel(scene);
+      this._hideChoices();
+      this._hideNavHint();
+      document.getElementById("narrationLayer").innerHTML = "";
+      document.getElementById("subtitleLayer").innerHTML = "";
+      this._clearIntertitle();
 
-    // 触发 onEnter
-    if (scene.onEnter) {
-      if (scene.onEnter.effects) {
-        GameState.applyEffects(scene.onEnter.effects);
+      // 场景特效
+      if (scene.shake) this._screenShake();
+      if (scene.vignette) this._showVignette();
+      else this._hideVignette();
+      if (scene.cprFlash) this._showCprFlash();
+      else this._hideCprFlash();
+      if (scene.aedMap) this._showAedDot();
+      else this._hideAedDot();
+
+      // 触发音频（如果素材到位）
+      if (scene.assets?.sounds) {
+        scene.assets.sounds.forEach(s => {
+          if (s.url && s.url.trim() !== "") {
+            if (s.type === "bgm" || s.type === "ambient") {
+              AudioManager.playBgm(s.url, { volume: s.volume || 0.6 });
+            } else {
+              AudioManager.playSfx(s.url, { volume: s.volume || 0.8 });
+            }
+          }
+        });
       }
-    }
 
-    // 渲染场景内容
-    this._renderScene(scene);
+      // 触发 onEnter
+      if (scene.onEnter) {
+        if (scene.onEnter.effects) {
+          GameState.applyEffects(scene.onEnter.effects);
+        }
+      }
+
+      // 渲染场景内容
+      this._renderScene(scene);
+    });
   },
+
+  // ==================== 场景切换过渡动画 ====================
+  _sceneTransition(onReady) {
+    const overlay = document.getElementById("sceneTransition");
+    if (!overlay) { onReady(); return; }
+
+    // 先黑入（最快淡入）
+    overlay.classList.add("active");
+
+    // 等待黑屏生效后切换内容，再淡出
+    setTimeout(() => {
+      onReady();
+      // 给新内容一帧的渲染时间，然后淡出
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          overlay.classList.remove("active");
+        });
+      });
+    }, 300);
+  },
+
+  // ==================== 条件路由解析 ====================
+  _resolveNext(scene) {
+    // 如果当前场景有 condition，可能返回重定向的场景ID
+    if (typeof scene.condition === "function") {
+      const redirect = scene.condition(GameState);
+      if (redirect) return redirect;
+    }
+    return scene.next;
+  },
+
+  // ==================== 堆叠旁白清理 ====================
+  _clearStackedNarrator() {
+    const el = document.getElementById("stackedNarrator");
+    if (el) {
+      el.classList.remove("active");
+      el.innerHTML = "";
+    }
+  },
+
+
 
   async _renderScene(scene) {
     this.isTyping = true;
+
+    // 收集所有需要堆叠的字幕行（当前阶段）
+    const ittQueue = [];
 
     // 渲染主行
     if (scene.lines && scene.lines.length > 0) {
       if (scene.mode === "narration") {
         for (const line of scene.lines) {
-          await this._renderNarrativeLine(line, scene);
+          if (line.important || scene.keepNarration) {
+            await this._typeLine(line, "narration");
+          } else {
+            ittQueue.push(line);
+          }
+        }
+        // 立即渲染 lines[] 中收集的字幕行（在 nextLines 之前）
+        if (ittQueue.length > 0) {
+          await this._delay(400);
+          if (this.currentSceneId !== scene.id) { this.isTyping = false; return; }
+          await this._renderStackedNarrationBlock(ittQueue, scene);
+          ittQueue.length = 0;
         }
       } else if (scene.mode === "dialogue") {
         for (let i = 0; i < scene.lines.length; i++) {
@@ -139,21 +213,38 @@ const Game = {
     // 渲染后续行
     if (scene.nextLines) {
       for (const nl of scene.nextLines) {
-        await this._delay(500);
-        document.getElementById("subtitleLayer").innerHTML = "";
-
-        if (nl.mode === "dialogue") {
-          this._showSpeakerTag(nl.speaker, nl.style);
-          await this._typeLine({ text: nl.text, hl: nl.hl || [] }, "subtitle");
-        } else {
-          await this._renderNarrativeLine({ text: nl.text, hl: nl.hl || [], important: nl.important }, scene);
-        }
-
-        if (nl.note) {
+        if (nl.mode === "narration" && !nl.important && !scene.keepNarration) {
+          // 字幕行：收集到队列
+          ittQueue.push(nl);
+        } else if (nl.mode === "narration") {
+          // 重要旁白 → 左侧
           await this._delay(300);
-          await this._typeNote(nl.note, []);
+          if (this.currentSceneId !== scene.id) { this.isTyping = false; return; }
+          await this._typeLine(nl, "narration");
+        } else {
+          // 对白 → 底部字幕
+          await this._delay(500);
+          if (this.currentSceneId !== scene.id) { this.isTyping = false; return; }
+          document.getElementById("subtitleLayer").innerHTML = "";
+
+          if (nl.mode === "dialogue") {
+            this._showSpeakerTag(nl.speaker, nl.style);
+            await this._typeLine({ text: nl.text, hl: nl.hl || [] }, "subtitle");
+          }
+
+          if (nl.note) {
+            await this._delay(300);
+            await this._typeNote(nl.note, []);
+          }
         }
       }
+    }
+
+    // === 渲染 nextLines 中收集的字幕行：堆叠 → 消散 → 雪花 ===
+    if (ittQueue.length > 0) {
+      await this._delay(400);
+      if (this.currentSceneId !== scene.id) { this.isTyping = false; return; }
+      await this._renderStackedNarrationBlock(ittQueue, scene);
     }
 
     // 交互模块
@@ -201,6 +292,124 @@ const Game = {
 
     this.isTyping = false;
     this._updateHUD();
+  },
+
+  // ==================== 堆叠旁白：句句向下累积 → 整块消散 → 雪花 ====================
+  async _renderStackedNarrationBlock(lines, scene) {
+    if (!lines || lines.length === 0) return;
+
+    const container = document.getElementById("stackedNarrator");
+    const holdDuration = 1.5;
+    const dissolveDuration = 1.5;
+
+    // 清空上轮、显示容器
+    container.innerHTML = "";
+    container.classList.add("active");
+
+    // 逐行生成，每行生成后不消除上一行
+    for (let i = 0; i < lines.length; i++) {
+      if (this.currentSceneId !== scene.id) { this._clearStackedNarrator(); return; }
+
+      const line = lines[i];
+      const lineEl = document.createElement("div");
+      lineEl.className = "subtitle-line";
+      container.appendChild(lineEl);
+
+      // 构建逐字 span
+      const text = line.text;
+      const hlWords = line.hl || [];
+      const spans = [];
+
+      for (let j = 0; j < text.length; j++) {
+        const span = document.createElement("span");
+        span.className = "char";
+        span.textContent = text[j];
+        lineEl.appendChild(span);
+        spans.push({ el: span, index: j });
+      }
+
+      // 高亮区间
+      const hlRanges = [];
+      hlWords.forEach(w => {
+        let idx = text.indexOf(w);
+        while (idx !== -1) {
+          hlRanges.push({ start: idx, end: idx + w.length });
+          idx = text.indexOf(w, idx + 1);
+        }
+      });
+      const isHl = (idx) => hlRanges.some(r => idx >= r.start && idx < r.end);
+
+      // 逐字显示
+      for (let k = 0; k < spans.length; k++) {
+        if (this.currentSceneId !== scene.id) { this._clearStackedNarrator(); return; }
+        if (this.skipNext) {
+          spans.forEach(s => {
+            s.el.classList.add("show");
+            if (isHl(s.index)) s.el.classList.add("hl");
+          });
+          this.skipNext = false;
+          break;
+        }
+        const s = spans[k];
+        if (isHl(s.index)) s.el.classList.add("hl");
+        s.el.classList.add("show");
+        await this._delay(35);
+      }
+
+      // 行间停顿（最后一行不停）
+      if (i < lines.length - 1) {
+        await this._delay(300);
+      }
+    }
+
+    if (this.currentSceneId !== scene.id) { this._clearStackedNarrator(); return; }
+
+    // 整块停留
+    await this._delay(holdDuration * 1000);
+
+    if (this.currentSceneId !== scene.id) { this._clearStackedNarrator(); return; }
+
+    // 渐隐消散
+    await this._dissolveText(container, dissolveDuration);
+  },
+
+  // ==================== 渐隐消散 ====================
+  _dissolveText(container, duration) {
+    return new Promise(resolve => {
+      // 生成雪花粒子（CSS降级方案）
+      const particles = [];
+      const rect = container.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const parent = document.getElementById("game");
+
+      for (let i = 0; i < 18; i++) {
+        const particle = document.createElement("div");
+        particle.className = "snow-particle";
+        particle.style.left = (cx + (Math.random() - 0.5) * rect.width) + "px";
+        particle.style.top = (cy + (Math.random() - 0.5) * rect.height) + "px";
+        particle.style.animationDuration = (0.8 + Math.random() * 1.2) + "s";
+        particle.style.animationDelay = Math.random() * 0.4 + "s";
+        particle.style.width = (3 + Math.random() * 5) + "px";
+        particle.style.height = particle.style.width;
+        if (parent) parent.appendChild(particle);
+        particles.push(particle);
+      }
+
+      // 渐隐文本
+      container.style.transition = `opacity ${duration * 0.5}s ease-out`;
+      container.style.opacity = "0";
+
+      // 清理
+      setTimeout(() => {
+        container.classList.remove("active");
+        container.innerHTML = "";
+        container.style.transition = "";
+        container.style.opacity = "";
+        particles.forEach(p => p.remove());
+        resolve();
+      }, duration * 1000);
+    });
   },
 
   // ==================== CPR模块 ====================
@@ -444,7 +653,8 @@ const Game = {
 
       // 逐字显示
       let charIdx = 0;
-      const speed = isNarration ? 50 : 40;
+      const baseSpeed = isNarration ? 50 : 40;
+      const speed = line.speed || baseSpeed;
 
       function revealNext() {
         if (charIdx >= spans.length) {
@@ -532,28 +742,86 @@ const Game = {
   // ==================== 舞台管理 ====================
   _updateStage(scene) {
     const stage = document.getElementById("stage");
+    const mediaLayer = document.getElementById("mediaLayer");
     const fallback = scene.stage || "rain_road";
 
-    // 尝试加载真实图片
-    const asset = ASSETS[scene.id];
-    const imgUrl = asset?.image;
+    // 先清除旧的媒体内容
+    if (mediaLayer) mediaLayer.innerHTML = "";
 
-    if (imgUrl) {
-      const img = new Image();
-      img.onload = () => {
-        stage.style.backgroundImage = `url(${imgUrl})`;
-        stage.style.backgroundSize = "cover";
-        stage.style.backgroundPosition = "center";
-        stage.className = "";
-      };
-      img.onerror = () => {
-        stage.style.backgroundImage = "";
-        stage.className = asset?.fallback || fallback;
-      };
-      img.src = imgUrl;
+    // 从 scene.assets 读取素材（而非不存在的全局 ASSETS）
+    const assets = scene.assets;
+    const images = assets?.images || [];
+    const videos = assets?.videos || [];
+
+    // 尝试加载第一张有效图片
+    const mainImage = images.find(img => img.url && img.url.trim() !== "");
+    const mainVideo = videos.find(vid => vid.url && vid.url.trim() !== "");
+
+    if (mainImage || mainVideo) {
+      let loaded = false;
+
+      // 加载图片
+      if (mainImage) {
+        const img = document.createElement("img");
+        img.className = `scene-img ${mainImage.cssClass || ""}`;
+        img.src = mainImage.url;
+        img.alt = "";
+        img.onload = () => {
+          img.classList.add("active");
+          stage.style.backgroundImage = "";
+          stage.className = "";
+          loaded = true;
+        };
+        img.onerror = () => {
+          img.remove();
+          if (!loaded) {
+            stage.style.backgroundImage = "";
+            stage.className = fallback;
+          }
+        };
+        if (mediaLayer) mediaLayer.appendChild(img);
+      }
+
+      // 加载视频（目前预留，视频不自动播放）
+      if (mainVideo) {
+        const vid = document.createElement("video");
+        vid.className = `scene-video ${mainVideo.cssClass || ""}`;
+        vid.src = mainVideo.url;
+        vid.muted = true;
+        vid.loop = true;
+        vid.playsInline = true;
+        vid.onloadeddata = () => {
+          vid.classList.add("active");
+          loaded = true;
+        };
+        vid.onerror = () => {
+          vid.remove();
+          if (!loaded) {
+            stage.style.backgroundImage = "";
+            stage.className = fallback;
+          }
+        };
+        if (mediaLayer) mediaLayer.appendChild(vid);
+      }
+
+      // 超时回退（素材加载超过5秒则回退到CSS背景）
+      setTimeout(() => {
+        if (!loaded && document.getElementById("mediaLayer")?.children.length === 0) {
+          stage.style.backgroundImage = "";
+          stage.className = fallback;
+        }
+      }, 5000);
     } else {
+      // 无素材 → 使用CSS占位背景
       stage.style.backgroundImage = "";
       stage.className = fallback;
+    }
+
+    // 应用场景速度CSS变量
+    if (scene.speed) {
+      stage.style.setProperty("--media-speed", scene.speed.media || 1.0);
+      stage.style.setProperty("--text-speed", scene.speed.text || 1.0);
+      stage.style.setProperty("--hold-speed", scene.speed.hold || 1.0);
     }
   },
 
@@ -689,6 +957,7 @@ const Game = {
     document.getElementById("interactionLayer")?.classList.remove("active");
     document.getElementById("stage")?.classList.remove("dimmed");
     this._clearIntertitle();
+    this._clearStackedNarrator();
     this._hideCprFlash();
     this._hideAedDot();
     this._hideVignette();
@@ -776,7 +1045,7 @@ const Game = {
         if (document.getElementById("takeoverModule")?.classList.contains("active")) return;
 
         if (scene.next) {
-          this.goToScene(scene.next);
+          this.goToScene(this._resolveNext(scene));
         }
       }
     });
@@ -797,11 +1066,12 @@ const Game = {
       if (e.target.closest("#takeoverModule")) return;
       if (e.target.closest("#reviewLayer")) return;
       if (e.target.closest("#pauseMenu")) return;
+      if (e.target.closest("#debugPanel")) return;
 
       // 推进场景
       const scene = SCENES[this.currentSceneId];
       if (scene && scene.next && !scene.choices) {
-        this.goToScene(scene.next);
+        this.goToScene(this._resolveNext(scene));
       }
     });
 
@@ -834,6 +1104,7 @@ const Game = {
     this._hideChoices();
     document.getElementById("narrationLayer").innerHTML = "";
     document.getElementById("subtitleLayer").innerHTML = "";
+    this._clearStackedNarrator();
     this._clearIntertitle();
     document.getElementById("reviewLayer").classList.remove("active");
     document.getElementById("reviewLayer").innerHTML = "";
@@ -849,6 +1120,200 @@ const Game = {
   // ==================== 工具 ====================
   _delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+};
+
+// ========== DEBUG PANEL — 调试模式 ==========
+const DebugPanel = {
+  _initialized: false,
+  _refreshInterval: null,
+
+  init() {
+    if (this._initialized) return;
+    this._initialized = true;
+
+    this._populateSceneSelect();
+    this._bindEvents();
+    this._startAutoRefresh();
+
+    console.log("%c[DebugPanel] 调试面板已就绪 %c| %c按 ` 键切换显示",
+      "color:#6ee7b7;", "", "color:#8f98a3;");
+  },
+
+  // 遍历 SCENES 填充下拉框
+  _populateSceneSelect() {
+    const select = document.getElementById("dbgSceneSelect");
+    if (!select) return;
+
+    // 清空并重建
+    select.innerHTML = '<option value="">-- 选择场景 --</option>';
+
+    // 按章节分组
+    const groups = {};
+    Object.entries(SCENES).forEach(([id, scene]) => {
+      const ch = scene.chapter || "其他";
+      if (!groups[ch]) groups[ch] = [];
+      groups[ch].push({ id, title: scene.title, stage: scene.stage });
+    });
+
+    Object.entries(groups).forEach(([chapter, scenes]) => {
+      const optgroup = document.createElement("optgroup");
+      optgroup.label = chapter;
+      scenes.forEach(s => {
+        const opt = document.createElement("option");
+        opt.value = s.id;
+        opt.textContent = `${s.title}`;
+        optgroup.appendChild(opt);
+      });
+      select.appendChild(optgroup);
+    });
+  },
+
+  // 绑定事件
+  _bindEvents() {
+    // 下拉框切换
+    const select = document.getElementById("dbgSceneSelect");
+    if (select) {
+      select.addEventListener("change", (e) => {
+        const sceneId = e.target.value;
+        if (!sceneId) return;
+
+        // 关闭开始画面
+        const start = document.getElementById("startScreen");
+        if (start) {
+          start.classList.add("fade-out");
+          setTimeout(() => { start.style.display = "none"; }, 1000);
+        }
+
+        // 跳转到选中场景
+        Game.goToScene(sceneId);
+      });
+    }
+
+    // 折叠/展开按钮
+    const toggle = document.getElementById("dbgToggle");
+    const panel = document.getElementById("debugPanel");
+    if (toggle && panel) {
+      toggle.addEventListener("click", () => {
+        const collapsed = panel.classList.toggle("collapsed");
+        toggle.textContent = collapsed ? "+" : "−";
+      });
+    }
+
+    // 重新开始按钮
+    document.getElementById("dbgRestart")?.addEventListener("click", () => {
+      Game.restartGame();
+    });
+
+    // HUD切换按钮
+    document.getElementById("dbgToggleHud")?.addEventListener("click", () => {
+      Game.toggleHUD();
+    });
+
+    // 全局快捷键：` 键切换调试面板显示
+    document.addEventListener("keydown", (e) => {
+      if (e.code === "Backquote" && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        const panel = document.getElementById("debugPanel");
+        if (panel) {
+          const wasCollapsed = panel.classList.contains("collapsed");
+          if (wasCollapsed) {
+            panel.classList.remove("collapsed");
+            document.getElementById("dbgToggle").textContent = "−";
+          } else {
+            panel.classList.add("collapsed");
+            document.getElementById("dbgToggle").textContent = "+";
+          }
+        }
+      }
+    });
+
+    // 阻止调试面板内的点击冒泡到游戏层
+    const dbgPanel = document.getElementById("debugPanel");
+    if (dbgPanel) {
+      dbgPanel.addEventListener("click", (e) => {
+        e.stopPropagation();
+      });
+    }
+  },
+
+  // 自动刷新状态显示
+  _startAutoRefresh() {
+    this._refresh();
+
+    if (this._refreshInterval) clearInterval(this._refreshInterval);
+    this._refreshInterval = setInterval(() => this._refresh(), 500);
+  },
+
+  _refresh() {
+    // 更新当前场景
+    const currentEl = document.getElementById("dbgCurrentScene");
+    if (currentEl) {
+      const scene = SCENES[Game.currentSceneId];
+      if (scene) {
+        currentEl.textContent = `[${scene.chapter}] ${scene.title} (${Game.currentSceneId})`;
+      } else {
+        currentEl.textContent = Game.currentSceneId || "未开始";
+      }
+    }
+
+    // 更新下拉框选中项
+    const select = document.getElementById("dbgSceneSelect");
+    if (select && Game.currentSceneId) {
+      select.value = Game.currentSceneId;
+    }
+
+    // 更新状态变量
+    const stateEl = document.getElementById("dbgStateVars");
+    if (!stateEl) return;
+
+    const s = GameState;
+    const vars = [
+      { name: "延误(s)",    key: "press_start_delay",    fmt: v => `${v}` },
+      { name: "错误等待(s)", key: "false_wait_penalty",   fmt: v => `${v}` },
+      { name: "按压质量",    key: "compression_quality",  fmt: v => {
+        const cls = v >= 70 ? "good" : v >= 50 ? "warn" : "bad";
+        return { text: `${v}`, cls };
+      }},
+      { name: "中断时间(s)", key: "compression_interrupt_time", fmt: v => `${v}` },
+      { name: "资源激活",    key: "resource_activation",  fmt: v => v || "—" },
+      { name: "证人可信度",  key: "witness_credibility",  fmt: v => `${v}/6` },
+      { name: "舆论扩散",    key: "public_spread",        fmt: v => `${v}/5` },
+      { name: "家属信任",    key: "family_trust",         fmt: v => {
+        const cls = v >= 2 ? "good" : v >= 0 ? "warn" : "bad";
+        return { text: `${v}`, cls };
+      }},
+      { name: "心理负担",    key: "wangyuan_burden",      fmt: v => `${v}/10` },
+      { name: "换人",        key: "takeover_success",     fmt: v => v === true ? "✓" : v === false ? "✗" : "—" },
+      { name: "AED流程",     key: "aed_protocol_clean",   fmt: v => v === true ? "✓" : v === false ? "✗" : "—" },
+      { name: "AED到场",     key: "aed_arrival_timing",   fmt: v => v || "mid" },
+      { name: "活跃证人",    key: null,                    fmt: () => `${s.getActiveWitnessCount()}/3` },
+      { name: "CPR总次",     key: "cpr_total_beats",      fmt: v => `${v}` },
+    ];
+
+    let html = "";
+    vars.forEach(v => {
+      let value, cls = "";
+      if (v.key) {
+        const raw = s[v.key];
+        const formatted = v.fmt(raw);
+        if (typeof formatted === "object") {
+          value = formatted.text;
+          cls = formatted.cls;
+        } else {
+          value = formatted;
+        }
+      } else {
+        value = v.fmt();
+      }
+
+      html += `<div class="dbg-var">
+        <span class="dbg-var-name">${v.name}</span>
+        <span class="dbg-var-val ${cls}">${value}</span>
+      </div>`;
+    });
+
+    stateEl.innerHTML = html;
   }
 };
 
@@ -870,8 +1335,11 @@ window.restartGame = function() {
 // ========== 启动游戏 ==========
 document.addEventListener("DOMContentLoaded", () => {
   Game.init();
-  console.log("%c《生命守护者》Demo框架已就绪 %c| %c点击或按空格开始",
+  DebugPanel.init();
+  console.log("%c《生命守护者》Demo框架已就绪 %c| %c点击或按空格开始 %c| %c按 ` 打开调试面板",
     "color:#f5c842;font-size:16px;",
     "",
-    "color:#8f98a3;");
+    "color:#8f98a3;",
+    "",
+    "color:#6ee7b7;");
 });
