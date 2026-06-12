@@ -356,141 +356,110 @@ html, body {
 .hud-value.danger { color: var(--danger); }
 .hud-value.good { color: var(--medical); }
 
-/* ========== NARRATION LAYER — 旁白（左中） ========== */
-#narrationLayer {
+/* ========== LEGACY LAYERS (deprecated) ========== */
+#narrationLayer, #subtitleLayer, #stackedNarrator { display: none !important; }
+
+/* ========== SUBTITLE BAR — 电影式底部字幕带（统一narration+dialogue） ========== */
+#subtitleBar {
   position: absolute;
-  left: 4vw;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 10;
-  pointer-events: none;
-  width: 22vw;
-  max-width: 360px;
-  max-height: 65vh;
-  overflow-y: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-#narrationLayer:empty { display: none; }
-#narrationLayer::-webkit-scrollbar { display: none; }
-
-#narrationLayer .narration-line {
-  font-family: var(--font-narrator);
-  font-size: 33px;
-  line-height: 1.6;
-  letter-spacing: 0.06em;
-  color: rgba(232, 228, 220, 0.82);
-  font-style: italic;
-  margin-bottom: 8px;
-  padding: 8px 18px 9px 22px;
-  background: linear-gradient(90deg, rgba(0, 0, 0, 0.48), rgba(0, 0, 0, 0.08));
-  border-left: 2px solid rgba(245, 200, 66, 0.34);
-  animation: lineReveal 0.5s ease-out;
-}
-@keyframes lineReveal {
-  from { opacity: 0; transform: translateX(-12px); }
-  to   { opacity: 1; transform: translateX(0); }
-}
-
-.narration-line .char {
-  opacity: 0;
-  transition: opacity 0.03s ease;
-}
-.narration-line .char.revealed { opacity: 1; }
-.narration-line .char.hl {
-  color: var(--amber);
-  font-weight: 600;
-  text-shadow: 0 0 8px rgba(245, 200, 66, 0.3);
-}
-
-/* Old narration dimming */
-.narration-line.old {
-  opacity: 0;
-  transform: translateX(-10px);
-  transition: opacity 1.4s ease, transform 1.4s ease;
-}
-
-/* ========== SUBTITLE LAYER — 对白字幕（底部中央） ========== */
-#subtitleLayer {
-  position: absolute;
-  bottom: 10vh;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10;
-  pointer-events: none;
-  width: min(75vw, 900px);
+  bottom: 0; left: 0;
+  width: 100%;
+  z-index: 12;
+  pointer-events: none !important;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 16px 32px 20px;
-  background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.65) 35%, rgba(0,0,0,0.75) 100%);
-  border-radius: 4px;
-  min-height: 40px;
+  justify-content: flex-end;
+  padding: 4vh 6vw 2.5vh;
+  min-height: 10vh;
+  gap: 6px;
+  background: transparent;
+  transition: background 0.6s ease;
 }
-#subtitleLayer:empty { display: none; }
-
-.speaker-tag {
-  display: inline-block;
-  font-family: var(--font-ui);
-  font-size: 13px;
-  color: var(--amber);
-  border: 1px solid rgba(245, 200, 66, 0.35);
-  padding: 2px 12px;
-  border-radius: 2px;
-  margin-right: 10px;
-  letter-spacing: 0.1em;
-  vertical-align: middle;
-}
-.speaker-tag.aed-voice {
-  color: var(--medical);
-  border-color: rgba(110, 231, 183, 0.35);
-  font-family: "Courier New", monospace;
-  letter-spacing: 0.15em;
-}
-.speaker-tag.dispatcher {
-  color: var(--blue);
-  border-color: rgba(125, 211, 252, 0.3);
+/* ---------- 旁白行：白色、衬线、无标点、居中、即时切换 ---------- */
+.sb-narration {
+  font-family: var(--font-narrator);
+  font-size: 36px;
+  line-height: 1.65;
+  letter-spacing: 0.05em;
+  color: #ffffff;
+  text-align: center;
+  width: min(78vw, 960px);
 }
 
-.subtitle-text {
+/* ---------- 对话行：黑体、带speaker ---------- */
+.sb-dialogue {
   font-family: var(--font-ui);
-  font-size: 21px;
+  font-size: 30px;
   line-height: 1.5;
   letter-spacing: 0.04em;
-  color: var(--text);
+  color: #ffffff;
   text-align: center;
-}
-.subtitle-text .char {
+  width: min(78vw, 960px);
   opacity: 0;
-  transition: opacity 0.04s ease;
+  animation: sbFadeIn 0.35s ease-out forwards;
 }
-.subtitle-text .char.revealed { opacity: 1; }
-.subtitle-text .char.hl {
-  color: var(--amber);
-  font-weight: 600;
+.sb-dialogue .char {
+  opacity: 0;
+  transition: opacity 0.035s ease;
 }
+.sb-dialogue .char.revealed { opacity: 1; }
 
-.subtitle-note {
-  font-family: var(--font-narrator);
-  font-size: 14px;
-  color: var(--muted);
-  font-style: italic;
-  text-align: center;
-  max-width: 600px;
-  line-height: 1.4;
-  margin-top: 2px;
+/* speaker tag 行内标签 */
+.sb-speaker {
+  display: inline;
+  font-size: 13px;
+  font-weight: 700;
+  margin-right: 6px;
+  letter-spacing: 0.08em;
 }
-.subtitle-note .char {
+.sb-speaker.character { color: var(--amber); }
+.sb-speaker.aed-voice {
+  color: var(--medical);
+  font-family: "Courier New", monospace;
+  letter-spacing: 0.12em;
+}
+.sb-speaker.dispatcher { color: var(--blue); }
+
+/* ---------- 注释小字（林小雨心理活动等） ---------- */
+.sb-note {
+  font-family: var(--font-narrator);
+  font-size: 13px;
+  font-style: italic;
+  color: rgba(255,255,255,0.45);
+  text-align: center;
+  margin-top: 2px;
+  width: min(60vw, 600px);
+  opacity: 0;
+  animation: sbFadeIn 0.5s ease-out 0.2s forwards;
+}
+.sb-note .char {
   opacity: 0;
   transition: opacity 0.03s ease;
 }
-.subtitle-note .char.revealed { opacity: 1; }
+.sb-note .char.revealed { opacity: 1; }
+
+/* ---------- 高亮 ---------- */
+.sb-narration .char.hl,
+.sb-dialogue .char.hl {
+  color: var(--amber);
+  font-weight: 700;
+  text-shadow: 0 0 6px rgba(245,200,66,0.25);
+}
+
+/* ---------- 通用动画 ---------- */
+@keyframes sbFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- 空字幕带隐藏 ---------- */
+#subtitleBar:empty { display: none; }
 
 /* ========== CHOICE LAYER ========== */
 #choiceLayer {
   position: absolute;
-  bottom: 18vh;
+  bottom: 24vh;
   left: 50%;
   transform: translateX(-50%);
   z-index: 25;
@@ -1088,74 +1057,23 @@ html, body {
 
 /* ========== RESPONSIVE ========== */
 @media (max-width: 1366px) {
-  #narrationLayer {
-    left: 3vw;
-    width: 23vw;
-    max-width: 300px;
-  }
-  #narrationLayer .narration-line {
-    font-size: 28px;
-  }
-  #subtitleLayer {
-    width: min(80vw, 800px);
-    bottom: 8vh;
-  }
-  .subtitle-text {
-    font-size: 18px;
-  }
-  #choiceLayer {
-    bottom: 20vh;
-  }
+  .sb-narration { font-size: 30px; }
+  .sb-dialogue { font-size: 26px; }
+  #choiceLayer { bottom: 26vh; }
 }
 
 @media (max-width: 768px) {
-  #narrationLayer {
-    left: 2vw;
-    width: 25vw;
-    max-width: none;
-    max-height: 50vh;
-    top: 40%;
-  }
-  #narrationLayer .narration-line {
-    font-size: 22px;
-    padding: 2px 8px;
-  }
-  #subtitleLayer {
-    width: 92vw;
-    bottom: 12vh;
-    padding: 12px 16px 16px;
-  }
-  .subtitle-text {
-    font-size: 15px;
-  }
-  .intertitle-text {
-    font-size: 22px;
-    width: 84vw;
-  }
-  .start-title {
-    font-size: 36px;
-  }
-  .speaker-tag {
-    font-size: 11px;
-    padding: 2px 8px;
-  }
-  #choiceLayer {
-    bottom: 24vh;
-    width: 90vw;
-  }
-  .choice-option {
-    width: calc(50% - 4px);
-    padding: 12px 14px;
-  }
-  .choice-label {
-    font-size: 14px;
-  }
-  #hud {
-    top: 1.5vh;
-    left: 1.5vw;
-    font-size: 10px;
-    gap: 3px;
-  }
+  .sb-narration { font-size: 24px; }
+  .sb-dialogue { font-size: 20px; }
+  .sb-speaker { font-size: 13px; }
+  .sb-note { font-size: 11px; }
+  #subtitleBar { padding: 4vh 4vw 2.5vh; min-height: 14vh; }
+  .intertitle-text { font-size: 22px; width: 84vw; }
+  .start-title { font-size: 36px; }
+  #choiceLayer { bottom: 28vh; width: 90vw; }
+  .choice-option { width: calc(50% - 4px); padding: 12px 14px; }
+  .choice-label { font-size: 14px; }
+  #hud { top: 1.5vh; left: 1.5vw; font-size: 10px; gap: 3px; }
   .hud-label { min-width: 55px; }
   .hud-row { padding: 2px 6px; }
   .cpr-bar-container { width: 260px; }
@@ -1198,52 +1116,6 @@ html, body {
 /* ---------- speaker-tag-line for subtitle reuse ---------- */
 #subtitleLayer .speaker-tag-line {
   margin-bottom: 4px;
-}
-
-/* ========== STACKED NARRATOR — 中路堆叠旁白 ========== */
-#stackedNarrator {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 12;
-  pointer-events: none;
-  display: none;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  width: min(80vw, 1000px);
-}
-#stackedNarrator.active {
-  display: flex;
-}
-
-#stackedNarrator .subtitle-line {
-  font-family: var(--font-narrator);
-  font-size: 28px;
-  line-height: 1.6;
-  letter-spacing: 0.07em;
-  text-align: center;
-  color: rgba(232, 228, 220, 0.88);
-  font-style: italic;
-  opacity: 0;
-  transform: translateY(14px);
-  animation: stackedFadeIn 0.45s ease-out forwards;
-}
-
-@keyframes stackedFadeIn {
-  from { opacity: 0; transform: translateY(14px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-#stackedNarrator .subtitle-line .char {
-  opacity: 0;
-  transition: opacity 0.035s ease;
-}
-#stackedNarrator .subtitle-line .char.show {
-  opacity: 1;
-}
-#stackedNarrator .subtitle-line .char.hl {
 }
 
 /* ========== MEDIA LAYER — 图片/视频素材层 ========== */
@@ -1302,21 +1174,6 @@ html, body {
   animation: snowDrift 1.5s ease-in forwards;
 }
 
-/* 响应式：堆叠字幕 */
-@media (max-width: 1366px) {
-  #stackedNarrator .subtitle-line {
-    font-size: 24px;
-  }
-}
-@media (max-width: 768px) {
-  #stackedNarrator .subtitle-line {
-    font-size: 18px;
-  }
-  #stackedNarrator {
-    gap: 10px;
-    width: 88vw;
-  }
-}
 
 /* ========== DEBUG PANEL — 左侧调试面板 ========== */
 #debugPanel {

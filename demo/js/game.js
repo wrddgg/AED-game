@@ -37,9 +37,7 @@ const Game = {
       start.classList.remove("fade-out");
       start.style.display = "flex";
     }
-    document.getElementById("narrationLayer").innerHTML = "";
-    document.getElementById("subtitleLayer").innerHTML = "";
-    this._clearStackedNarrator();
+    this._clearBar();
     this._clearIntertitle();
     document.getElementById("navHint").style.display = "none";
     document.getElementById("stage").className = "subway_canopy";
@@ -92,8 +90,7 @@ const Game = {
       this._updateSceneLabel(scene);
       this._hideChoices();
       this._hideNavHint();
-      document.getElementById("narrationLayer").innerHTML = "";
-      document.getElementById("subtitleLayer").innerHTML = "";
+      this._clearBar();
       this._clearIntertitle();
 
       // 场景特效
@@ -106,17 +103,7 @@ const Game = {
       else this._hideAedDot();
 
       // 触发音频（如果素材到位）
-      if (scene.assets?.sounds) {
-        scene.assets.sounds.forEach(s => {
-          if (s.url && s.url.trim() !== "") {
-            if (s.type === "bgm" || s.type === "ambient") {
-              AudioManager.playBgm(s.url, { volume: s.volume || 0.6 });
-            } else {
-              AudioManager.playSfx(s.url, { volume: s.volume || 0.8 });
-            }
-          }
-        });
-      }
+      this._playSceneAudio(scene);
 
       // 触发 onEnter
       if (scene.onEnter) {
@@ -162,92 +149,76 @@ const Game = {
 
   // ==================== 堆叠旁白清理 ====================
   _clearStackedNarrator() {
-    const el = document.getElementById("stackedNarrator");
-    if (el) {
-      el.classList.remove("active");
-      el.innerHTML = "";
-    }
+    this._clearBar();
   },
 
+  // ==================== 工具：去标点（narration用） ====================
+  _stripPunctuation(text) {
+    return text.replace(/[，。！？；：""''（）【】《》、…—\-—\s]/g, "").trim();
+  },
 
+  // ==================== 工具：底部字幕带引用 ====================
+  _bar() { return document.getElementById("subtitleBar"); },
 
   async _renderScene(scene) {
     this.isTyping = true;
+    this._clearBar();
 
-    // 收集所有需要堆叠的字幕行（当前阶段）
-    const ittQueue = [];
-
-    // 渲染主行
+    // ===== 渲染主行 =====
     if (scene.lines && scene.lines.length > 0) {
       if (scene.mode === "narration") {
         for (const line of scene.lines) {
-          if (line.important || scene.keepNarration) {
-            await this._typeLine(line, "narration");
-          } else {
-            ittQueue.push(line);
-          }
-        }
-        // 立即渲染 lines[] 中收集的字幕行（在 nextLines 之前）
-        if (ittQueue.length > 0) {
-          await this._delay(400);
           if (this.currentSceneId !== scene.id) { this.isTyping = false; return; }
-          await this._renderStackedNarrationBlock(ittQueue, scene);
-          ittQueue.length = 0;
+          await this._barLine(line, "narration");
         }
       } else if (scene.mode === "dialogue") {
         for (let i = 0; i < scene.lines.length; i++) {
-          if (i === 0 && scene.speaker) {
-            this._showSpeakerTag(scene.speaker, scene.lines[i].style);
-          }
-          await this._typeLine(scene.lines[i], "subtitle");
+          if (this.currentSceneId !== scene.id) { this.isTyping = false; return; }
+          const line = scene.lines[i];
+          const speaker = (i === 0 && scene.speaker) ? scene.speaker : line.speaker;
+          const style = line.style || null;
+          await this._barLine(line, "dialogue", speaker, style);
         }
       } else if (scene.mode === "choice") {
         for (const line of scene.lines) {
-          await this._renderNarrativeLine(line, scene);
+          if (this.currentSceneId !== scene.id) { this.isTyping = false; return; }
+          await this._barLine(line, "narration");
         }
-      } else if (scene.mode === "review") {
-        // 复盘页面在scene结束后处理
       }
+      // review模式不需要字幕
     }
 
-    // 渲染后续行
+    // ===== 渲染后续行 =====
     if (scene.nextLines) {
-      for (const nl of scene.nextLines) {
-        if (nl.mode === "narration" && !nl.important && !scene.keepNarration) {
-          // 字幕行：收集到队列
-          ittQueue.push(nl);
-        } else if (nl.mode === "narration") {
-          // 重要旁白 → 左侧
-          await this._delay(300);
-          if (this.currentSceneId !== scene.id) { this.isTyping = false; return; }
-          await this._typeLine(nl, "narration");
-        } else {
-          // 对白 → 底部字幕
-          await this._delay(500);
-          if (this.currentSceneId !== scene.id) { this.isTyping = false; return; }
-          document.getElementById("subtitleLayer").innerHTML = "";
+      for (let i = 0; i < scene.nextLines.length; i++) {
+        if (this.currentSceneId !== scene.id) { this.isTyping = false; return; }
 
-          if (nl.mode === "dialogue") {
-            this._showSpeakerTag(nl.speaker, nl.style);
-            await this._typeLine({ text: nl.text, hl: nl.hl || [] }, "subtitle");
-          }
+        const nl = scene.nextLines[i];
 
+        // 检查是否与下一行标记为重叠对话（多人同时说话）
+        const nextNl = scene.nextLines[i + 1];
+        if (nl.overlap && nextNl && nextNl.mode === "dialogue") {
+          // 多人物重叠：同时渲染两行
+          await this._barMultiSpeaker(nl, nextNl);
+          i++; // 跳过后一行
+          continue;
+        }
+
+        if (nl.mode === "narration") {
+          await this._delay(nl.delay || 400);
+          await this._barLine(nl, "narration");
+        } else if (nl.mode === "dialogue") {
+          await this._delay(nl.delay || 500);
+          await this._barLine(nl, "dialogue", nl.speaker, nl.style);
           if (nl.note) {
-            await this._delay(300);
-            await this._typeNote(nl.note, []);
+            await this._delay(200);
+            await this._barNote(nl.note);
           }
         }
       }
     }
 
-    // === 渲染 nextLines 中收集的字幕行：堆叠 → 消散 → 雪花 ===
-    if (ittQueue.length > 0) {
-      await this._delay(400);
-      if (this.currentSceneId !== scene.id) { this.isTyping = false; return; }
-      await this._renderStackedNarrationBlock(ittQueue, scene);
-    }
-
-    // 交互模块
+    // ===== 交互模块 =====
     if (scene.interaction === "cpr" && scene.onEnter?.cprMode) {
       await this._delay(400);
       if (this.currentSceneId !== scene.id) { this.isTyping = false; return; }
@@ -270,146 +241,31 @@ const Game = {
       if (this.currentSceneId !== scene.id) { this.isTyping = false; return; }
     }
 
-    // 选择
+    // ===== 选择 =====
     if (scene.choices) {
       await this._delay(600);
       if (this.currentSceneId !== scene.id) { this.isTyping = false; return; }
       this._showChoices(scene);
     }
 
-    // 复盘
+    // ===== 复盘 =====
     if (scene.mode === "review") {
       await this._delay(400);
       Interactions.showReview();
     }
 
-    // 无选择则显示推进提示
-    if (!scene.choices && scene.mode !== "review") {
-      await this._delay(800);
-      if (this.currentSceneId !== scene.id) { this.isTyping = false; return; }
-      this._showNavHint();
-    }
-
     this.isTyping = false;
     this._updateHUD();
-  },
 
-  // ==================== 堆叠旁白：句句向下累积 → 整块消散 → 雪花 ====================
-  async _renderStackedNarrationBlock(lines, scene) {
-    if (!lines || lines.length === 0) return;
-
-    const container = document.getElementById("stackedNarrator");
-    const holdDuration = 1.5;
-    const dissolveDuration = 1.5;
-
-    // 清空上轮、显示容器
-    container.innerHTML = "";
-    container.classList.add("active");
-
-    // 逐行生成，每行生成后不消除上一行
-    for (let i = 0; i < lines.length; i++) {
-      if (this.currentSceneId !== scene.id) { this._clearStackedNarrator(); return; }
-
-      const line = lines[i];
-      const lineEl = document.createElement("div");
-      lineEl.className = "subtitle-line";
-      container.appendChild(lineEl);
-
-      // 构建逐字 span
-      const text = line.text;
-      const hlWords = line.hl || [];
-      const spans = [];
-
-      for (let j = 0; j < text.length; j++) {
-        const span = document.createElement("span");
-        span.className = "char";
-        span.textContent = text[j];
-        lineEl.appendChild(span);
-        spans.push({ el: span, index: j });
-      }
-
-      // 高亮区间
-      const hlRanges = [];
-      hlWords.forEach(w => {
-        let idx = text.indexOf(w);
-        while (idx !== -1) {
-          hlRanges.push({ start: idx, end: idx + w.length });
-          idx = text.indexOf(w, idx + 1);
-        }
-      });
-      const isHl = (idx) => hlRanges.some(r => idx >= r.start && idx < r.end);
-
-      // 逐字显示
-      for (let k = 0; k < spans.length; k++) {
-        if (this.currentSceneId !== scene.id) { this._clearStackedNarrator(); return; }
-        if (this.skipNext) {
-          spans.forEach(s => {
-            s.el.classList.add("show");
-            if (isHl(s.index)) s.el.classList.add("hl");
-          });
-          this.skipNext = false;
-          break;
-        }
-        const s = spans[k];
-        if (isHl(s.index)) s.el.classList.add("hl");
-        s.el.classList.add("show");
-        await this._delay(35);
-      }
-
-      // 行间停顿（最后一行不停）
-      if (i < lines.length - 1) {
-        await this._delay(300);
+    // ===== 自动推进到下一场景（非选择/非复盘时） =====
+    if (!scene.choices && scene.mode !== "review") {
+      const nextId = this._resolveNext(scene);
+      if (nextId) {
+        await this._delay(800);
+        if (this.currentSceneId !== scene.id) return;
+        this.goToScene(nextId);
       }
     }
-
-    if (this.currentSceneId !== scene.id) { this._clearStackedNarrator(); return; }
-
-    // 整块停留
-    await this._delay(holdDuration * 1000);
-
-    if (this.currentSceneId !== scene.id) { this._clearStackedNarrator(); return; }
-
-    // 渐隐消散
-    await this._dissolveText(container, dissolveDuration);
-  },
-
-  // ==================== 渐隐消散 ====================
-  _dissolveText(container, duration) {
-    return new Promise(resolve => {
-      // 生成雪花粒子（CSS降级方案）
-      const particles = [];
-      const rect = container.getBoundingClientRect();
-      const cx = rect.left + rect.width / 2;
-      const cy = rect.top + rect.height / 2;
-      const parent = document.getElementById("game");
-
-      for (let i = 0; i < 18; i++) {
-        const particle = document.createElement("div");
-        particle.className = "snow-particle";
-        particle.style.left = (cx + (Math.random() - 0.5) * rect.width) + "px";
-        particle.style.top = (cy + (Math.random() - 0.5) * rect.height) + "px";
-        particle.style.animationDuration = (0.8 + Math.random() * 1.2) + "s";
-        particle.style.animationDelay = Math.random() * 0.4 + "s";
-        particle.style.width = (3 + Math.random() * 5) + "px";
-        particle.style.height = particle.style.width;
-        if (parent) parent.appendChild(particle);
-        particles.push(particle);
-      }
-
-      // 渐隐文本
-      container.style.transition = `opacity ${duration * 0.5}s ease-out`;
-      container.style.opacity = "0";
-
-      // 清理
-      setTimeout(() => {
-        container.classList.remove("active");
-        container.innerHTML = "";
-        container.style.transition = "";
-        container.style.opacity = "";
-        particles.forEach(p => p.remove());
-        resolve();
-      }, duration * 1000);
-    });
   },
 
   // ==================== CPR模块 ====================
@@ -465,6 +321,9 @@ const Game = {
   _showChoices(scene) {
     const layer = document.getElementById("choiceLayer");
     if (!layer) return;
+
+    // 显示选择时：清除底部字幕，避免重叠
+    this._clearBar();
 
     // 背景变暗
     document.getElementById("stage").classList.add("dimmed");
@@ -526,69 +385,151 @@ const Game = {
     }
   },
 
-  // ==================== 打字效果 ====================
-  _renderNarrativeLine(line, scene) {
-    const useLeftNarration = line.important || scene.keepNarration;
-    if (useLeftNarration) return this._typeLine(line, "narration");
-    return this._typeIntertitle(line);
-  },
+  // ==================== 底部字幕带：narration/dialogue ====================
+  // 当前行结束回调（点击跳过时触发）
+  _barLine(line, type, speaker, style) {
+    // 先结束上一行的等待
+    resolve();
 
-  _typeIntertitle(line) {
     return new Promise(resolve => {
-      const layer = document.getElementById("intertitleLayer");
-      if (!layer) {
-        this._typeLine(line, "narration").then(resolve);
-        return;
+      this._lineResolve = resolve;
+
+      const bar = this._bar();
+      if (!bar) { resolve(); return; }
+
+      const isNarration = type === "narration";
+      const text = isNarration ? this._stripPunctuation(line.text) : line.text;
+      if (!text) { resolve(); return; }
+
+      // 清空旧内容再显示新行
+      bar.innerHTML = "";
+
+      const hlWords = line.hl || [];
+      const el = document.createElement("div");
+      el.className = isNarration ? "sb-narration" : "sb-dialogue";
+
+      if (!isNarration && speaker) {
+        const tag = document.createElement("span");
+        tag.className = "sb-speaker" + (style ? ` ${style}` : " character");
+        tag.textContent = speaker;
+        el.appendChild(tag);
       }
 
-      const text = line.text || "";
-      layer.innerHTML = "";
-      layer.className = "active";
+      if (isNarration) {
+        el.textContent = text;
+        bar.appendChild(el);
+        this.typingTimer = setTimeout(resolve, line.hold || 2000);
+      } else {
+        const spans = [];
+        for (let i = 0; i < text.length; i++) {
+          const span = document.createElement("span");
+          span.className = "char";
+          span.textContent = text[i];
+          el.appendChild(span);
+          spans.push({ el: span, index: i });
+        }
+        bar.appendChild(el);
 
-      const container = document.createElement("div");
-      container.className = "intertitle-text";
-      layer.appendChild(container);
+        const hlRanges = [];
+        hlWords.forEach(w => {
+          let idx = text.indexOf(w);
+          while (idx !== -1) { hlRanges.push({ start: idx, end: idx + w.length }); idx = text.indexOf(w, idx + 1); }
+        });
+        const isHl = (idx) => hlRanges.some(r => idx >= r.start && idx < r.end);
 
+        let charIdx = 0;
+        const speed = line.speed || 38;
+        const revealNext = () => {
+          if (charIdx >= spans.length) { this.typingTimer = setTimeout(resolve, 600); return; }
+          const s = spans[charIdx];
+          if (isHl(s.index)) s.el.classList.add("hl");
+          s.el.classList.add("revealed");
+          charIdx++;
+          this.typingTimer = setTimeout(revealNext, speed);
+        };
+        revealNext();
+      }
+    });
+  },
+
+  // 结束当前行的等待（点击跳过或自然超时）
+  _finishLine() {
+    if (this._lineResolve) {
+      if (this.typingTimer) clearTimeout(this.typingTimer);
+      const cb = this._lineResolve;
+      this._lineResolve = null;
+      this.skipNext = false;
+      cb();
+    }
+  },
+
+  // ==================== 底部字幕带：对话注释小字 ====================
+  _barNote(text) {
+    resolve();
+    return new Promise(resolve => {
+      this._lineResolve = resolve;
+      const bar = this._bar();
+      if (!bar || !text) { resolve(); return; }
+      const el = document.createElement("div");
+      el.className = "sb-note";
       const spans = [];
       for (let i = 0; i < text.length; i++) {
         const span = document.createElement("span");
         span.className = "char";
         span.textContent = text[i];
-        container.appendChild(span);
-        spans.push({ el: span, index: i });
+        el.appendChild(span);
+        spans.push(span);
       }
-
-      let charIdx = 0;
-      const revealNext = () => {
-        if (charIdx >= spans.length) {
-          this.typingTimer = setTimeout(() => {
-            layer.classList.add("fading");
-            this.typingTimer = setTimeout(() => {
-              this._clearIntertitle();
-              resolve();
-            }, 760);
-          }, line.hold || 680);
-          return;
-        }
-
-        if (this.skipNext) {
-          spans.forEach(s => {
-            s.el.classList.add("revealed");
-          });
-          this.skipNext = false;
-          charIdx = spans.length;
-          revealNext();
-          return;
-        }
-
-        const s = spans[charIdx];
-        s.el.classList.add("revealed");
-        charIdx++;
-        this.typingTimer = setTimeout(revealNext, line.speed || 34);
+      bar.appendChild(el);
+      let idx = 0;
+      const reveal = () => {
+        if (idx >= spans.length) { this.typingTimer = setTimeout(resolve, 200); return; }
+        spans[idx].classList.add("revealed");
+        idx++;
+        this.typingTimer = setTimeout(reveal, 30);
       };
-
-      revealNext();
+      reveal();
     });
+  },
+
+  // ==================== 底部字幕带：多人物重叠对话 ====================
+  async _barMultiSpeaker(line1, line2) {
+    const bar = this._bar();
+    if (!bar) return;
+
+    // 清空旧内容
+    bar.querySelectorAll(".sb-dialogue, .sb-note").forEach(el => el.classList.add("old"));
+
+    // 同时创建两行
+    const el1 = document.createElement("div");
+    el1.className = "sb-dialogue";
+    el1.style.marginBottom = "2px";
+    const tag1 = document.createElement("span");
+    tag1.className = `sb-speaker ${line1.style || "character"}`;
+    tag1.textContent = line1.speaker || "";
+    el1.appendChild(tag1);
+    const text1 = document.createTextNode(line1.text);
+    el1.appendChild(text1);
+    // 立即显示（不逐字，保持电影感）
+    bar.appendChild(el1);
+
+    const el2 = document.createElement("div");
+    el2.className = "sb-dialogue";
+    const tag2 = document.createElement("span");
+    tag2.className = `sb-speaker ${line2.style || "character"}`;
+    tag2.textContent = line2.speaker || "";
+    el2.appendChild(tag2);
+    const text2 = document.createTextNode(line2.text);
+    el2.appendChild(text2);
+    bar.appendChild(el2);
+
+    await this._delay(2000);
+  },
+
+  // ==================== 清空底部字幕带 ====================
+  _clearBar() {
+    const bar = this._bar();
+    if (bar) bar.innerHTML = "";
   },
 
   _clearIntertitle() {
@@ -599,144 +540,103 @@ const Game = {
     this.skipNext = false;
   },
 
-  _typeLine(line, target) {
-    return new Promise(resolve => {
-      const text = line.text;
-      const hlWords = line.hl || [];
-      const isNarration = target === "narration";
-      const panel = document.getElementById(isNarration ? "narrationLayer" : "subtitleLayer");
-
-      // 旁白：新建行，累积
-      // 字幕：清空旧内容再新建
-      const container = document.createElement("div");
-      container.className = isNarration ? "narration-line" : "subtitle-text";
-
-      if (!isNarration) {
-        // 字幕复用subtitleLayer但保留speaker-tag
-        const existingTag = panel.querySelector(".speaker-tag-line");
-        panel.innerHTML = "";
-        if (existingTag) panel.appendChild(existingTag);
-      }
-
-      panel.appendChild(container);
-
-      // 旧旁白变暗
-      if (isNarration) {
-        panel.querySelectorAll(".narration-line").forEach(el => {
-          if (el !== container) el.classList.add("old");
-        });
-      }
-
-      // 构建字符span
-      const spans = [];
-      for (let i = 0; i < text.length; i++) {
-        const span = document.createElement("span");
-        span.className = "char";
-        span.textContent = text[i];
-        container.appendChild(span);
-        spans.push({ el: span, char: text[i], index: i });
-      }
-
-      // 高亮区间
-      const hlRanges = [];
-      hlWords.forEach(word => {
-        let idx = text.indexOf(word);
-        while (idx !== -1) {
-          hlRanges.push({ start: idx, end: idx + word.length });
-          idx = text.indexOf(word, idx + 1);
-        }
-      });
-
-      function isHl(idx) {
-        return hlRanges.some(r => idx >= r.start && idx < r.end);
-      }
-
-      // 逐字显示
-      let charIdx = 0;
-      const baseSpeed = isNarration ? 50 : 40;
-      const speed = line.speed || baseSpeed;
-
-      function revealNext() {
-        if (charIdx >= spans.length) {
-          resolve();
-          return;
-        }
-
-        // 支持跳过
-        if (this.skipNext) {
-          spans.forEach(s => {
-            s.el.classList.add("revealed");
-            if (isHl(s.index)) s.el.classList.add("hl");
-          });
-          this.skipNext = false;
-          resolve();
-          return;
-        }
-
-        const s = spans[charIdx];
-        if (isHl(s.index)) s.el.classList.add("hl");
-        s.el.classList.add("revealed");
-        charIdx++;
-
-        // 滚动旁白
-        if (isNarration) {
-          panel.scrollTop = panel.scrollHeight;
-        }
-
-        this.typingTimer = setTimeout(revealNext, speed);
-      }
-      revealNext = revealNext.bind(this);
-      revealNext();
-    });
+  _buildAssetCandidates(basePath, exts) {
+    if (!basePath || !basePath.trim()) return [];
+    const trimmed = basePath.trim();
+    if (/\.[a-z0-9]+$/i.test(trimmed)) return [trimmed];
+    return exts.map(ext => `${trimmed}${ext}`);
   },
 
-  _typeNote(text, hl) {
-    return new Promise(resolve => {
-      const panel = document.getElementById("subtitleLayer");
-      const container = document.createElement("div");
-      container.className = "subtitle-note";
-      panel.appendChild(container);
-
-      const spans = [];
-      for (let i = 0; i < text.length; i++) {
-        const span = document.createElement("span");
-        span.className = "char";
-        span.textContent = text[i];
-        container.appendChild(span);
-        spans.push({ el: span, char: text[i], index: i });
-      }
-
-      let charIdx = 0;
-      const revealNext = () => {
-        if (charIdx >= spans.length) { resolve(); return; }
-        if (this.skipNext) {
-          spans.forEach(s => s.el.classList.add("revealed"));
-          this.skipNext = false;
-          resolve();
-          return;
-        }
-        spans[charIdx].el.classList.add("revealed");
-        charIdx++;
-        this.typingTimer = setTimeout(revealNext, 35);
-      };
-      revealNext();
-    });
+  _applyStageFallback(stage, fallback) {
+    if (!stage) return;
+    stage.style.backgroundImage = "";
+    stage.className = fallback;
   },
 
-  // ==================== 字幕标签 ====================
-  _showSpeakerTag(name, style) {
-    const panel = document.getElementById("subtitleLayer");
-    const tagLine = document.createElement("div");
-    tagLine.className = "speaker-tag-line";
-    tagLine.style.cssText = "text-align:center;margin-bottom:4px;";
+  _loadImageSlot(slot, mediaLayer, stage, onResolve) {
+    const candidates = this._buildAssetCandidates(slot.url, [".webp", ".png", ".jpg", ".jpeg"]);
+    if (!candidates.length) {
+      onResolve(false);
+      return;
+    }
 
-    const tag = document.createElement("span");
-    tag.className = "speaker-tag";
-    if (style === "aed-voice") tag.classList.add("aed-voice");
-    if (style === "dispatcher") tag.classList.add("dispatcher");
-    tag.textContent = name;
-    tagLine.appendChild(tag);
-    panel.appendChild(tagLine);
+    const img = document.createElement("img");
+    img.className = `scene-img ${slot.cssClass || ""}`;
+    img.alt = "";
+    let index = 0;
+
+    const tryNext = () => {
+      if (index >= candidates.length) {
+        img.remove();
+        onResolve(false);
+        return;
+      }
+      img.src = candidates[index++];
+    };
+
+    img.onload = () => {
+      img.classList.add("active");
+      stage.style.backgroundImage = "";
+      stage.className = "";
+      onResolve(true);
+    };
+    img.onerror = tryNext;
+
+    if (mediaLayer) mediaLayer.appendChild(img);
+    tryNext();
+  },
+
+  _loadVideoSlot(slot, mediaLayer, stage, onResolve) {
+    const candidates = this._buildAssetCandidates(slot.url, [".mp4", ".webm"]);
+    if (!candidates.length) {
+      onResolve(false);
+      return;
+    }
+
+    const vid = document.createElement("video");
+    vid.className = `scene-video ${slot.cssClass || ""}`;
+    vid.muted = true;
+    vid.loop = true;
+    vid.playsInline = true;
+    let index = 0;
+
+    const tryNext = () => {
+      if (index >= candidates.length) {
+        vid.remove();
+        onResolve(false);
+        return;
+      }
+      vid.src = candidates[index++];
+      vid.load();
+    };
+
+    vid.onloadeddata = () => {
+      vid.classList.add("active");
+      stage.style.backgroundImage = "";
+      stage.className = "";
+      vid.play().catch(() => {});
+      onResolve(true);
+    };
+    vid.onerror = tryNext;
+
+    if (mediaLayer) mediaLayer.appendChild(vid);
+    tryNext();
+  },
+
+  _playSceneAudio(scene) {
+    const sounds = scene.assets?.sounds || [];
+    sounds.forEach((sound, index) => {
+      if (!sound.url || !sound.url.trim()) return;
+      if (sound.type === "bgm") {
+        AudioManager.playBgm(sound.url, { volume: sound.volume || 0.6 });
+      } else if (sound.type === "ambient") {
+        AudioManager.setAmbience(sound.url, { volume: sound.volume || 0.5 });
+      } else if (sound.type === "voice") {
+        AudioManager.playVoice(scene.id, `scene_${index + 1}`, { basePath: sound.url, volume: sound.volume || 1.0 });
+      } else if (sound.type === "sfx") {
+        AudioManager.playSfx(sound.url, { volume: sound.volume || 0.8 });
+      }
+    });
   },
 
   // ==================== 舞台管理 ====================
@@ -745,79 +645,40 @@ const Game = {
     const mediaLayer = document.getElementById("mediaLayer");
     const fallback = scene.stage || "rain_road";
 
-    // 先清除旧的媒体内容
     if (mediaLayer) mediaLayer.innerHTML = "";
 
-    // 从 scene.assets 读取素材（而非不存在的全局 ASSETS）
-    const assets = scene.assets;
-    const images = assets?.images || [];
-    const videos = assets?.videos || [];
+    const assets = scene.assets || {};
+    const images = (assets.images || []).filter(img => img.url && img.url.trim() !== "");
+    const videos = (assets.videos || []).filter(vid => vid.url && vid.url.trim() !== "");
+    const totalSlots = images.length + videos.length;
 
-    // 尝试加载第一张有效图片
-    const mainImage = images.find(img => img.url && img.url.trim() !== "");
-    const mainVideo = videos.find(vid => vid.url && vid.url.trim() !== "");
+    if (!totalSlots) {
+      this._applyStageFallback(stage, fallback);
+    } else {
+      let resolvedSlots = 0;
+      let loadedAny = false;
+      let fallbackApplied = false;
 
-    if (mainImage || mainVideo) {
-      let loaded = false;
+      const handleResolved = (success) => {
+        resolvedSlots += 1;
+        loadedAny = loadedAny || success;
+        if (resolvedSlots >= totalSlots && !loadedAny && !fallbackApplied) {
+          fallbackApplied = true;
+          this._applyStageFallback(stage, fallback);
+        }
+      };
 
-      // 加载图片
-      if (mainImage) {
-        const img = document.createElement("img");
-        img.className = `scene-img ${mainImage.cssClass || ""}`;
-        img.src = mainImage.url;
-        img.alt = "";
-        img.onload = () => {
-          img.classList.add("active");
-          stage.style.backgroundImage = "";
-          stage.className = "";
-          loaded = true;
-        };
-        img.onerror = () => {
-          img.remove();
-          if (!loaded) {
-            stage.style.backgroundImage = "";
-            stage.className = fallback;
-          }
-        };
-        if (mediaLayer) mediaLayer.appendChild(img);
-      }
+      videos.forEach(slot => this._loadVideoSlot(slot, mediaLayer, stage, handleResolved));
+      images.forEach(slot => this._loadImageSlot(slot, mediaLayer, stage, handleResolved));
 
-      // 加载视频（目前预留，视频不自动播放）
-      if (mainVideo) {
-        const vid = document.createElement("video");
-        vid.className = `scene-video ${mainVideo.cssClass || ""}`;
-        vid.src = mainVideo.url;
-        vid.muted = true;
-        vid.loop = true;
-        vid.playsInline = true;
-        vid.onloadeddata = () => {
-          vid.classList.add("active");
-          loaded = true;
-        };
-        vid.onerror = () => {
-          vid.remove();
-          if (!loaded) {
-            stage.style.backgroundImage = "";
-            stage.className = fallback;
-          }
-        };
-        if (mediaLayer) mediaLayer.appendChild(vid);
-      }
-
-      // 超时回退（素材加载超过5秒则回退到CSS背景）
       setTimeout(() => {
-        if (!loaded && document.getElementById("mediaLayer")?.children.length === 0) {
-          stage.style.backgroundImage = "";
-          stage.className = fallback;
+        if (!loadedAny && !fallbackApplied) {
+          fallbackApplied = true;
+          this._applyStageFallback(stage, fallback);
         }
       }, 5000);
-    } else {
-      // 无素材 → 使用CSS占位背景
-      stage.style.backgroundImage = "";
-      stage.className = fallback;
     }
 
-    // 应用场景速度CSS变量
     if (scene.speed) {
       stage.style.setProperty("--media-speed", scene.speed.media || 1.0);
       stage.style.setProperty("--text-speed", scene.speed.text || 1.0);
@@ -956,8 +817,7 @@ const Game = {
     document.getElementById("choiceLayer")?.classList.remove("active");
     document.getElementById("interactionLayer")?.classList.remove("active");
     document.getElementById("stage")?.classList.remove("dimmed");
-    this._clearIntertitle();
-    this._clearStackedNarrator();
+    this._clearBar();
     this._hideCprFlash();
     this._hideAedDot();
     this._hideVignette();
@@ -965,10 +825,10 @@ const Game = {
 
   // ==================== 导航提示 ====================
   _showNavHint() {
-    document.getElementById("navHint").style.display = "block";
+    // 自动流程：不再显示"继续"提示
   },
   _hideNavHint() {
-    document.getElementById("navHint").style.display = "none";
+    // 自动流程
   },
 
   // ==================== 场景标签 ====================
@@ -1022,57 +882,22 @@ const Game = {
         return;
       }
 
-      // 推进（非选择/非交互模式）/ 开始画面
-      if ((e.code === "Space" || e.code === "ArrowRight") && !this.isTyping) {
-        e.preventDefault();
-
-        // 开始画面：按空格开始游戏
+      // 开始画面：按空格或点击开始游戏
+      if (e.code === "Space" && !this.isTyping) {
         const startScreen = document.getElementById("startScreen");
         if (startScreen && startScreen.style.display !== "none") {
+          e.preventDefault();
           this._startGame();
           return;
-        }
-
-        const scene = SCENES[this.currentSceneId];
-        if (!scene) return;
-
-        // 如果有选择在显示，不推进
-        if (document.getElementById("choiceLayer")?.classList.contains("active")) return;
-        // 如果交互模块活跃，不推进
-        if (document.getElementById("cprModule")?.classList.contains("active")) return;
-        if (document.getElementById("aedModule")?.classList.contains("active")) return;
-        if (document.getElementById("assignModule")?.classList.contains("active")) return;
-        if (document.getElementById("takeoverModule")?.classList.contains("active")) return;
-
-        if (scene.next) {
-          this.goToScene(this._resolveNext(scene));
         }
       }
     });
 
-    // 鼠标点击推进
+    // 鼠标点击：仅用于交互模块，不跳过字幕
     document.getElementById("game").addEventListener("click", (e) => {
-      if (this.isTyping) {
-        // 跳过打字
-        this.skipNext = true;
-        return;
-      }
-
-      // 忽略选择/交互区域的点击
       if (e.target.closest("#choiceLayer")) return;
-      if (e.target.closest("#cprModule")) return;
-      if (e.target.closest("#aedModule")) return;
-      if (e.target.closest("#assignModule")) return;
-      if (e.target.closest("#takeoverModule")) return;
-      if (e.target.closest("#reviewLayer")) return;
       if (e.target.closest("#pauseMenu")) return;
       if (e.target.closest("#debugPanel")) return;
-
-      // 推进场景
-      const scene = SCENES[this.currentSceneId];
-      if (scene && scene.next && !scene.choices) {
-        this.goToScene(this._resolveNext(scene));
-      }
     });
 
     // 开始画面点击
@@ -1102,9 +927,7 @@ const Game = {
     if (this.typingTimer) clearTimeout(this.typingTimer);
     this._hideAllModules();
     this._hideChoices();
-    document.getElementById("narrationLayer").innerHTML = "";
-    document.getElementById("subtitleLayer").innerHTML = "";
-    this._clearStackedNarrator();
+    this._clearBar();
     this._clearIntertitle();
     document.getElementById("reviewLayer").classList.remove("active");
     document.getElementById("reviewLayer").innerHTML = "";

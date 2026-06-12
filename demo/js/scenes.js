@@ -1,14 +1,14 @@
 /* ============================================================
-   scenes.js — 《生命守护者》数据驱动场景系统 v2
+   scenes.js — 《生命守护者》数据驱动场景系统 v3
    每个节点可配置 images/videos/sounds 各2个槽位
-   URL为空则不加载 · 时间戳自由设置 · CSS控制播放速度
+   url 使用 assets 下的无扩展名基路径，运行时自动补全扩展名
    ============================================================ */
 
 /* ========== 素材槽位模板 ==========
    每个节点：
-     assets.images[]  — 图片槽 (url空=不加载, startTime/endTime 秒)
-     assets.videos[]  — 视频槽 (同)
-     assets.sounds[]  — 声音槽 (type: bgm|sfx|voice)
+     assets.images[]  — 图片槽，建议写成 assets/images/<sceneId>/main
+     assets.videos[]  — 视频槽，建议写成 assets/videos/<sceneId>/main
+     assets.sounds[]  — 声音槽，建议写成 assets/audio/<type>/... 基路径
      speed            — CSS变量覆盖 { media, text, hold }
    ============================================================ */
 
@@ -25,16 +25,16 @@ const SCENES = {
     reviewTags: ["序幕"],
     assets: {
       images: [
-        { url: "", cssClass: "bg-main",     startTime: 0, endTime: 0 },
-        { url: "", cssClass: "bg-overlay",  startTime: 0, endTime: 0 },
+        { url: "assets/images/prologue_factory/main", cssClass: "bg-main",     startTime: 0, endTime: 0 },
+        { url: "assets/images/prologue_factory/detail", cssClass: "bg-overlay",  startTime: 0, endTime: 0 },
       ],
       videos: [
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/prologue_factory/main", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/prologue_factory/alt", cssClass: "", startTime: 0, endTime: 0 },
       ],
       sounds: [
-        { url: "", type: "bgm",   startTime: 0, endTime: 0, volume: 0.6 },
-        { url: "", type: "sfx",   startTime: 0, endTime: 0, volume: 0.8 },
+        { url: "assets/audio/bgm/prologue_factory__bgm_1", type: "bgm",   startTime: 0, endTime: 0, volume: 0.6 },
+        { url: "assets/audio/sfx/prologue_factory__sfx_1", type: "sfx",   startTime: 0, endTime: 0, volume: 0.8 },
       ],
     },
     speed: { media: 1.0, text: 1.0, hold: 1.0 },
@@ -61,16 +61,16 @@ const SCENES = {
     reviewTags: ["序幕"],
     assets: {
       images: [
-        { url: "", cssClass: "bg-main",    startTime: 0, endTime: 0 },
-        { url: "", cssClass: "bg-detail",  startTime: 0, endTime: 0 },
+        { url: "assets/images/prologue_hands/main", cssClass: "bg-main",    startTime: 0, endTime: 0 },
+        { url: "assets/images/prologue_hands/detail", cssClass: "bg-detail",  startTime: 0, endTime: 0 },
       ],
       videos: [
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/prologue_hands/main", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/prologue_hands/alt", cssClass: "", startTime: 0, endTime: 0 },
       ],
       sounds: [
-        { url: "", type: "bgm",   startTime: 0, endTime: 0, volume: 0.6 },
-        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.4 },
+        { url: "assets/audio/bgm/prologue_hands__bgm_1", type: "bgm",   startTime: 0, endTime: 0, volume: 0.6 },
+        { url: "assets/audio/ambient/prologue_hands__ambient_1", type: "ambient", startTime: 0, endTime: 0, volume: 0.4 },
       ],
     },
     speed: { media: 1.0, text: 1.0, hold: 1.0 },
@@ -96,16 +96,16 @@ const SCENES = {
     reviewTags: ["序幕"],
     assets: {
       images: [
-        { url: "", cssClass: "bg-split-left",  startTime: 0, endTime: 0 },
-        { url: "", cssClass: "bg-split-right", startTime: 0, endTime: 0 },
+        { url: "assets/images/prologue_phone/main", cssClass: "bg-split-left",  startTime: 0, endTime: 0 },
+        { url: "assets/images/prologue_phone/detail", cssClass: "bg-split-right", startTime: 0, endTime: 0 },
       ],
       videos: [
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/prologue_phone/main", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/prologue_phone/alt", cssClass: "", startTime: 0, endTime: 0 },
       ],
       sounds: [
-        { url: "", type: "bgm", startTime: 0, endTime: 0, volume: 0.5 },
-        { url: "", type: "sfx", startTime: 0, endTime: 0, volume: 1.0 },
+        { url: "assets/audio/bgm/prologue_phone__bgm_1", type: "bgm", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "assets/audio/sfx/prologue_phone__sfx_1", type: "sfx", startTime: 0, endTime: 0, volume: 1.0 },
       ],
     },
     speed: { media: 1.0, text: 1.0, hold: 1.0 },
@@ -127,16 +127,16 @@ const SCENES = {
     reviewTags: ["序幕"],
     assets: {
       images: [
-        { url: "", cssClass: "bg-wide",   startTime: 0, endTime: 0 },
-        { url: "", cssClass: "bg-detail", startTime: 3, endTime: 0 },
+        { url: "assets/images/prologue_rain/main", cssClass: "bg-wide",   startTime: 0, endTime: 0 },
+        { url: "assets/images/prologue_rain/detail", cssClass: "bg-detail", startTime: 3, endTime: 0 },
       ],
       videos: [
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/prologue_rain/main", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/prologue_rain/alt", cssClass: "", startTime: 0, endTime: 0 },
       ],
       sounds: [
-        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
-        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.8 },
+        { url: "assets/audio/ambient/prologue_rain__ambient_1", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "assets/audio/sfx/prologue_rain__sfx_1", type: "sfx",     startTime: 0, endTime: 0, volume: 0.8 },
       ],
     },
     speed: { media: 1.0, text: 1.0, hold: 1.0 },
@@ -146,8 +146,15 @@ const SCENES = {
       { text: "倒计时，开始。", hl: ["倒计时"] }
     ],
     nextLines: [
-      { mode: "narration", text: "人群外侧，地铁保安马志国正张开手臂往后退外围——\"退一步，留出空间，别挤。\"他缺了一截的左手无名指在灯光下格外显眼，退伍兵的习惯让他先把秩序管起来，但他还没敢走到圆心。", hl: ["张开手臂", "退伍兵"] },
-      { mode: "narration", text: "人群前排，护理实习生林小雨已蹲下来透过人缝看老人的脸色。她的嘴唇动了动，但导师那句\"院外别乱动\"像一道锁扣在喉咙上。她的手伸进包里，摸到了手机——她其实已经输了120，只是还没按下拨出键。", hl: ["护理实习生", "输了120", "还没按下拨出键"] }
+      { mode: "narration", text: "人群外侧，地铁保安马志国正张开手臂往后退外围", hl: ["张开手臂"] },
+      { mode: "narration", text: "\"退一步，留出空间，别挤\"", hl: ["退一步"] },
+      { mode: "narration", text: "他缺了一截的左手无名指在灯光下格外显眼", hl: ["缺了一截", "无名指"] },
+      { mode: "narration", text: "退伍兵的习惯让他先把秩序管起来", hl: ["退伍兵"] },
+      { mode: "narration", text: "但他还没敢走到圆心", hl: ["没敢走到圆心"] },
+      { mode: "narration", text: "人群前排，护理实习生林小雨已蹲下来透过人缝看老人的脸色", hl: ["护理实习生"] },
+      { mode: "narration", text: "她的嘴唇动了动，但导师那句\"院外别乱动\"像一道锁扣在喉咙上", hl: ["院外别乱动"] },
+      { mode: "narration", text: "她的手伸进包里，摸到了手机", hl: ["手机"] },
+      { mode: "narration", text: "她其实已经输了120，只是还没按下拨出键", hl: ["输了120", "还没按下"] }
     ],
     next: "choice_1"
   },
@@ -164,16 +171,16 @@ const SCENES = {
     reviewTags: ["选择点1"],
     assets: {
       images: [
-        { url: "", cssClass: "bg-main",   startTime: 0, endTime: 0 },
-        { url: "", cssClass: "bg-circle", startTime: 2, endTime: 0 },
+        { url: "assets/images/choice_1/main", cssClass: "bg-main",   startTime: 0, endTime: 0 },
+        { url: "assets/images/choice_1/detail", cssClass: "bg-circle", startTime: 2, endTime: 0 },
       ],
       videos: [
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/choice_1/main", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/choice_1/alt", cssClass: "", startTime: 0, endTime: 0 },
       ],
       sounds: [
-        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
-        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.8 },
+        { url: "assets/audio/ambient/choice_1__ambient_1", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "assets/audio/sfx/choice_1__sfx_1", type: "sfx",     startTime: 0, endTime: 0, volume: 0.8 },
       ],
     },
     speed: { media: 1.0, text: 1.0, hold: 1.0 },
@@ -201,16 +208,16 @@ const SCENES = {
     reviewTags: ["第一阶段"],
     assets: {
       images: [
-        { url: "", cssClass: "bg-kneel",   startTime: 0, endTime: 0 },
-        { url: "", cssClass: "bg-face",    startTime: 3, endTime: 0 },
+        { url: "assets/images/enter_circle/main", cssClass: "bg-kneel",   startTime: 0, endTime: 0 },
+        { url: "assets/images/enter_circle/detail", cssClass: "bg-face",    startTime: 3, endTime: 0 },
       ],
       videos: [
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/enter_circle/main", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/enter_circle/alt", cssClass: "", startTime: 0, endTime: 0 },
       ],
       sounds: [
-        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
-        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.7 },
+        { url: "assets/audio/ambient/enter_circle__ambient_1", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "assets/audio/sfx/enter_circle__sfx_1", type: "sfx",     startTime: 0, endTime: 0, volume: 0.7 },
       ],
     },
     speed: { media: 1.0, text: 1.0, hold: 1.0 },
@@ -239,16 +246,16 @@ const SCENES = {
     reviewTags: ["第一阶段"],
     assets: {
       images: [
-        { url: "", cssClass: "bg-phone",   startTime: 0, endTime: 0 },
-        { url: "", cssClass: "bg-kneel",   startTime: 3, endTime: 0 },
+        { url: "assets/images/film_first/main", cssClass: "bg-phone",   startTime: 0, endTime: 0 },
+        { url: "assets/images/film_first/detail", cssClass: "bg-kneel",   startTime: 3, endTime: 0 },
       ],
       videos: [
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/film_first/main", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/film_first/alt", cssClass: "", startTime: 0, endTime: 0 },
       ],
       sounds: [
-        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
-        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.7 },
+        { url: "assets/audio/ambient/film_first__ambient_1", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "assets/audio/sfx/film_first__sfx_1", type: "sfx",     startTime: 0, endTime: 0, volume: 0.7 },
       ],
     },
     speed: { media: 1.0, text: 1.0, hold: 1.0 },
@@ -274,16 +281,16 @@ const SCENES = {
     reviewTags: ["第二阶段"],
     assets: {
       images: [
-        { url: "", cssClass: "bg-check",   startTime: 0, endTime: 0 },
-        { url: "", cssClass: "bg-breath",  startTime: 4, endTime: 0 },
+        { url: "assets/images/check_response/main", cssClass: "bg-check",   startTime: 0, endTime: 0 },
+        { url: "assets/images/check_response/detail", cssClass: "bg-breath",  startTime: 4, endTime: 0 },
       ],
       videos: [
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/check_response/main", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/check_response/alt", cssClass: "", startTime: 0, endTime: 0 },
       ],
       sounds: [
-        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
-        { url: "", type: "sfx",     startTime: 4, endTime: 0, volume: 0.6 },
+        { url: "assets/audio/ambient/check_response__ambient_1", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "assets/audio/sfx/check_response__sfx_1", type: "sfx",     startTime: 4, endTime: 0, volume: 0.6 },
       ],
     },
     speed: { media: 1.0, text: 1.0, hold: 1.0 },
@@ -316,16 +323,16 @@ const SCENES = {
     reviewTags: ["第二阶段"],
     assets: {
       images: [
-        { url: "", cssClass: "bg-cpr-find",  startTime: 0, endTime: 0 },
-        { url: "", cssClass: "bg-cpr-hands", startTime: 2, endTime: 0 },
+        { url: "assets/images/start_cpr/main", cssClass: "bg-cpr-find",  startTime: 0, endTime: 0 },
+        { url: "assets/images/start_cpr/detail", cssClass: "bg-cpr-hands", startTime: 2, endTime: 0 },
       ],
       videos: [
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/start_cpr/main", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/start_cpr/alt", cssClass: "", startTime: 0, endTime: 0 },
       ],
       sounds: [
-        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
-        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.6 },
+        { url: "assets/audio/ambient/start_cpr__ambient_1", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "assets/audio/sfx/start_cpr__sfx_1", type: "sfx",     startTime: 0, endTime: 0, volume: 0.6 },
       ],
     },
     speed: { media: 1.0, text: 1.0, hold: 1.0 },
@@ -333,10 +340,10 @@ const SCENES = {
       { text: "没有正常呼吸，或只有濒死叹息，就按心脏骤停处理。", hl: ["没有正常呼吸", "濒死叹息", "心脏骤停"], important: true }
     ],
     nextLines: [
-      { mode: "narration", text: "王远眼神一狠，拉开老人的外衣，隔着湿冷的毛衣快速找到胸部中央、胸骨下半部的位置。", hl: ["拉开外衣", "隔着湿冷毛衣", "胸骨下半部"] },
+      { mode: "narration", text: "王远眼神一狠——不再犹豫，不再等。他朝老人迈出一步，双膝即将着地。", hl: ["不再犹豫", "即将着地"] },
       { mode: "narration", text: "林小雨在人群里惊呼一声——\"对！应该按压！他看出来了！\"但她依然没有勇气拨开人群。", hl: ["没有勇气拨开人群"] }
     ],
-    next: "cpr_first_push"
+    next: "kneel_down"
   },
 
   // ==================== 分支B · wait_breath ====================
@@ -351,16 +358,16 @@ const SCENES = {
     reviewTags: ["第二阶段"],
     assets: {
       images: [
-        { url: "", cssClass: "bg-wait",    startTime: 0, endTime: 0 },
-        { url: "", cssClass: "bg-lips",    startTime: 3, endTime: 0 },
+        { url: "assets/images/wait_breath/main", cssClass: "bg-wait",    startTime: 0, endTime: 0 },
+        { url: "assets/images/wait_breath/detail", cssClass: "bg-lips",    startTime: 3, endTime: 0 },
       ],
       videos: [
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/wait_breath/main", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/wait_breath/alt", cssClass: "", startTime: 0, endTime: 0 },
       ],
       sounds: [
-        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
-        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "assets/audio/ambient/wait_breath__ambient_1", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "assets/audio/sfx/wait_breath__sfx_1", type: "sfx",     startTime: 0, endTime: 0, volume: 0.5 },
       ],
     },
     speed: { media: 1.0, text: 1.0, hold: 1.0 },
@@ -373,6 +380,43 @@ const SCENES = {
     ],
     nextLines: [
       { mode: "narration", text: "林小雨急得直跺脚，眼泪差点流出来。她知道宝贵的\"黄金四分钟\"正在被无情蚕食，但她那双脚就像灌了铅。", hl: ["黄金四分钟"] }
+    ],
+    next: "kneel_down"
+  },
+
+  // ==================== 汇合 · kneel_down ====================
+
+  kneel_down: {
+    id: "kneel_down",
+    chapter: "第一章",
+    title: "跪下",
+    stage: "cpr_closeup",
+    mode: "narration",
+    rain: true,
+    reviewTags: ["第三阶段"],
+    assets: {
+      images: [
+        { url: "assets/images/kneel_down/main", cssClass: "bg-kneel",    startTime: 0, endTime: 0 },
+        { url: "assets/images/kneel_down/detail", cssClass: "bg-kneel-hands", startTime: 2, endTime: 0 },
+      ],
+      videos: [
+        { url: "assets/videos/kneel_down/main", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/kneel_down/alt", cssClass: "", startTime: 0, endTime: 0 },
+      ],
+      sounds: [
+        { url: "assets/audio/ambient/kneel_down__ambient_1", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "assets/audio/sfx/kneel_down__sfx_1", type: "sfx", startTime: 0, endTime: 0, volume: 0.7 },
+      ],
+    },
+    speed: { media: 1.0, text: 1.0, hold: 1.0 },
+    lines: [
+      { text: "王远双膝一沉，跪在老人身侧的湿滑地砖上。", hl: ["双膝一沉", "跪在"] },
+      { text: "裤腿被地面潮气浸透，但他顾不上冷——双手拉开外套拉链，隔着湿冷的毛衣摸索胸骨的位置。", hl: ["摸索胸骨"] },
+      { text: "雨水从屋檐斜打在背上，他的手掌悬停在老人胸口上方。", hl: ["手掌悬停"] },
+      { text: "三年前那扇推不开的门，和眼前这具需要按压的胸口，在这一刻重叠了。", hl: ["重叠"] }
+    ],
+    nextLines: [
+      { mode: "dialogue", speaker: "林小雨", text: "对……应该按压！", hl: ["应该按压"], note: "声音终于有了些力气，但她的脚还没迈出去。" }
     ],
     next: "cpr_first_push"
   },
@@ -390,23 +434,23 @@ const SCENES = {
     reviewTags: ["第三阶段"],
     assets: {
       images: [
-        { url: "", cssClass: "bg-push",     startTime: 0, endTime: 0 },
-        { url: "", cssClass: "bg-push-close", startTime: 2, endTime: 0 },
+        { url: "assets/images/cpr_first_push/main", cssClass: "bg-push",     startTime: 0, endTime: 0 },
+        { url: "assets/images/cpr_first_push/detail", cssClass: "bg-push-close", startTime: 2, endTime: 0 },
       ],
       videos: [
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/cpr_first_push/main", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/cpr_first_push/alt", cssClass: "", startTime: 0, endTime: 0 },
       ],
       sounds: [
-        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
-        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.7 },
+        { url: "assets/audio/ambient/cpr_first_push__ambient_1", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "assets/audio/sfx/cpr_first_push__sfx_1", type: "sfx",     startTime: 0, endTime: 0, volume: 0.7 },
       ],
     },
     speed: { media: 1.0, text: 1.0, hold: 1.0 },
     lines: [
       { text: "掌根找准胸部中央、胸骨下半部的位置，全身力量轰然下压。", hl: ["胸部中央", "胸骨下半部", "轰然下压"], important: true },
       { text: "成人按压深度约5-6厘米；压下去，也要让胸廓完全回弹。", hl: ["5-6厘米", "完全回弹"], important: true },
-      { text: "而是夹杂着骨骼抵抗的、沉重而脆弱的肉体。", hl: ["骨骼抵抗", "沉重而脆弱"] },
+      { text: "掌下的手感不是医院的模拟橡胶人——而是夹杂着骨骼抵抗的、沉重而脆弱的肉体。", hl: ["不是模拟橡胶人", "沉重而脆弱"] },
       { text: "那篇文章他只看了十七秒，可这十七秒，此刻像一根绳子，拽着他的手不要停。", hl: ["只看了十七秒", "不要停"] }
     ],
     next: "scam_whisper"
@@ -424,16 +468,16 @@ const SCENES = {
     reviewTags: ["第三阶段"],
     assets: {
       images: [
-        { url: "", cssClass: "bg-whisper",  startTime: 0, endTime: 0 },
-        { url: "", cssClass: "bg-crowd",    startTime: 2, endTime: 0 },
+        { url: "assets/images/scam_whisper/main", cssClass: "bg-whisper",  startTime: 0, endTime: 0 },
+        { url: "assets/images/scam_whisper/detail", cssClass: "bg-crowd",    startTime: 2, endTime: 0 },
       ],
       videos: [
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/scam_whisper/main", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/scam_whisper/alt", cssClass: "", startTime: 0, endTime: 0 },
       ],
       sounds: [
-        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
-        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.6 },
+        { url: "assets/audio/ambient/scam_whisper__ambient_1", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "assets/audio/sfx/scam_whisper__sfx_1", type: "sfx",     startTime: 0, endTime: 0, volume: 0.6 },
       ],
     },
     speed: { media: 1.0, text: 1.0, hold: 1.0 },
@@ -464,16 +508,16 @@ const SCENES = {
     reviewTags: ["第三阶段", "点名分工"],
     assets: {
       images: [
-        { url: "", cssClass: "bg-point",    startTime: 0, endTime: 0 },
-        { url: "", cssClass: "bg-alliance", startTime: 5, endTime: 0 },
+        { url: "assets/images/name_witness/main", cssClass: "bg-point",    startTime: 0, endTime: 0 },
+        { url: "assets/images/name_witness/detail", cssClass: "bg-alliance", startTime: 5, endTime: 0 },
       ],
       videos: [
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/name_witness/main", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/name_witness/alt", cssClass: "", startTime: 0, endTime: 0 },
       ],
       sounds: [
-        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
-        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.7 },
+        { url: "assets/audio/ambient/name_witness__ambient_1", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "assets/audio/sfx/name_witness__sfx_1", type: "sfx",     startTime: 0, endTime: 0, volume: 0.7 },
       ],
     },
     speed: { media: 1.0, text: 1.0, hold: 1.0 },
@@ -500,16 +544,16 @@ const SCENES = {
     reviewTags: ["第三阶段", "路人录像"],
     assets: {
       images: [
-        { url: "", cssClass: "bg-phones",   startTime: 0, endTime: 0 },
-        { url: "", cssClass: "bg-stars",    startTime: 2, endTime: 0 },
+        { url: "assets/images/crowd_film/main", cssClass: "bg-phones",   startTime: 0, endTime: 0 },
+        { url: "assets/images/crowd_film/detail", cssClass: "bg-stars",    startTime: 2, endTime: 0 },
       ],
       videos: [
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/crowd_film/main", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/crowd_film/alt", cssClass: "", startTime: 0, endTime: 0 },
       ],
       sounds: [
-        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
-        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.6 },
+        { url: "assets/audio/ambient/crowd_film__ambient_1", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "assets/audio/sfx/crowd_film__sfx_1", type: "sfx",     startTime: 0, endTime: 0, volume: 0.6 },
       ],
     },
     speed: { media: 1.0, text: 1.0, hold: 1.0 },
@@ -539,16 +583,16 @@ const SCENES = {
     reviewTags: ["第四阶段", "CPR"],
     assets: {
       images: [
-        { url: "", cssClass: "bg-rhythm-1",  startTime: 0, endTime: 0 },
-        { url: "", cssClass: "bg-rhythm-2",  startTime: 3, endTime: 0 },
+        { url: "assets/images/cpr_rhythm/main", cssClass: "bg-rhythm-1",  startTime: 0, endTime: 0 },
+        { url: "assets/images/cpr_rhythm/detail", cssClass: "bg-rhythm-2",  startTime: 3, endTime: 0 },
       ],
       videos: [
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/cpr_rhythm/main", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/cpr_rhythm/alt", cssClass: "", startTime: 0, endTime: 0 },
       ],
       sounds: [
-        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
-        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.6 },
+        { url: "assets/audio/ambient/cpr_rhythm__ambient_1", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "assets/audio/sfx/cpr_rhythm__sfx_1", type: "sfx",     startTime: 0, endTime: 0, volume: 0.6 },
       ],
     },
     speed: { media: 1.0, text: 1.0, hold: 1.0 },
@@ -577,16 +621,16 @@ const SCENES = {
     reviewTags: ["第四阶段"],
     assets: {
       images: [
-        { url: "", cssClass: "bg-fatigue",   startTime: 0, endTime: 0 },
-        { url: "", cssClass: "bg-exhaust",   startTime: 2, endTime: 0 },
+        { url: "assets/images/cpr_fatigue/main", cssClass: "bg-fatigue",   startTime: 0, endTime: 0 },
+        { url: "assets/images/cpr_fatigue/detail", cssClass: "bg-exhaust",   startTime: 2, endTime: 0 },
       ],
       videos: [
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/cpr_fatigue/main", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/cpr_fatigue/alt", cssClass: "", startTime: 0, endTime: 0 },
       ],
       sounds: [
-        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
-        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.6 },
+        { url: "assets/audio/ambient/cpr_fatigue__ambient_1", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "assets/audio/sfx/cpr_fatigue__sfx_1", type: "sfx",     startTime: 0, endTime: 0, volume: 0.6 },
       ],
     },
     speed: { media: 1.0, text: 1.0, hold: 1.0 },
@@ -615,16 +659,16 @@ const SCENES = {
     reviewTags: ["第四阶段", "换人"],
     assets: {
       images: [
-        { url: "", cssClass: "bg-handoff",   startTime: 0, endTime: 0 },
-        { url: "", cssClass: "bg-together",  startTime: 3, endTime: 0 },
+        { url: "assets/images/let_others/main", cssClass: "bg-handoff",   startTime: 0, endTime: 0 },
+        { url: "assets/images/let_others/detail", cssClass: "bg-together",  startTime: 3, endTime: 0 },
       ],
       videos: [
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/let_others/main", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/let_others/alt", cssClass: "", startTime: 0, endTime: 0 },
       ],
       sounds: [
-        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
-        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.7 },
+        { url: "assets/audio/ambient/let_others__ambient_1", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "assets/audio/sfx/let_others__sfx_1", type: "sfx",     startTime: 0, endTime: 0, volume: 0.7 },
       ],
     },
     speed: { media: 1.0, text: 1.0, hold: 1.0 },
@@ -653,16 +697,16 @@ const SCENES = {
     reviewTags: ["第四阶段", "硬撑"],
     assets: {
       images: [
-        { url: "", cssClass: "bg-alone",     startTime: 0, endTime: 0 },
-        { url: "", cssClass: "bg-bend-arm",  startTime: 2, endTime: 0 },
+        { url: "assets/images/keep_going/main", cssClass: "bg-alone",     startTime: 0, endTime: 0 },
+        { url: "assets/images/keep_going/detail", cssClass: "bg-bend-arm",  startTime: 2, endTime: 0 },
       ],
       videos: [
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/keep_going/main", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/keep_going/alt", cssClass: "", startTime: 0, endTime: 0 },
       ],
       sounds: [
-        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
-        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.6 },
+        { url: "assets/audio/ambient/keep_going__ambient_1", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "assets/audio/sfx/keep_going__sfx_1", type: "sfx",     startTime: 0, endTime: 0, volume: 0.6 },
       ],
     },
     speed: { media: 1.0, text: 1.0, hold: 1.0 },
@@ -693,16 +737,16 @@ const SCENES = {
     reviewTags: ["第五阶段", "家属冲突"],
     assets: {
       images: [
-        { url: "", cssClass: "bg-rush-in",   startTime: 0, endTime: 0 },
-        { url: "", cssClass: "bg-red-rope",  startTime: 4, endTime: 0 },
+        { url: "assets/images/family_accuse/main", cssClass: "bg-rush-in",   startTime: 0, endTime: 0 },
+        { url: "assets/images/family_accuse/detail", cssClass: "bg-red-rope",  startTime: 4, endTime: 0 },
       ],
       videos: [
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/family_accuse/main", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/family_accuse/alt", cssClass: "", startTime: 0, endTime: 0 },
       ],
       sounds: [
-        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
-        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.8 },
+        { url: "assets/audio/ambient/family_accuse__ambient_1", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "assets/audio/sfx/family_accuse__sfx_1", type: "sfx",     startTime: 0, endTime: 0, volume: 0.8 },
       ],
     },
     speed: { media: 1.0, text: 1.0, hold: 1.0 },
@@ -711,9 +755,15 @@ const SCENES = {
       { text: "你在干什么？！你是谁？！", hl: ["你是谁"] }
     ],
     nextLines: [
-      { mode: "narration", text: "赵雪梅冲进来时先看到了雨棚外歪倒的电动车——黄色外卖箱翻在积水里。旁边一个中年女人拽住她小声说：\"你是不是家属？那边有个送外卖的在你爸身边蹲着，不知道是不是撞倒的……\"赵雪梅的脸瞬间白了。", hl: ["电动车", "黄色外卖箱", "是不是撞倒的"] },
+      { mode: "narration", text: "赵雪梅冲进来时先看到了雨棚外歪倒的电动车", hl: ["电动车"] },
+      { mode: "narration", text: "黄色外卖箱翻在积水里", hl: ["外卖箱"] },
+      { mode: "dialogue", speaker: "围观女人", text: "你是不是家属？有个送外卖的在你爸身边蹲着，不知道是不是撞倒的", style: "character" },
+      { mode: "narration", text: "赵雪梅的脸瞬间白了", hl: ["脸瞬间白了"] },
       { text: "你把我爸怎么了？！是不是你撞的他？！", mode: "dialogue", speaker: "赵雪梅", hl: ["是不是你撞的"] },
-      { mode: "narration", text: "王远余光扫到老人左手腕上的红绳——赵雪梅腕上也有一根一样的。他突然明白，拉扯他的不是恶意，是一个女儿快要失去父亲时的恐惧。", hl: ["红绳", "快要失去父亲时的恐惧"] }
+      { mode: "narration", text: "王远余光扫到老人左手腕上的红绳", hl: ["红绳"] },
+      { mode: "narration", text: "赵雪梅腕上也有一根一模一样的", hl: ["一模一样"] },
+      { mode: "narration", text: "他突然明白，拉扯他的不是恶意", hl: ["不是恶意"] },
+      { mode: "narration", text: "是一个女儿快要失去父亲时的恐惧", hl: ["失去父亲时的恐惧"] }
     ],
     choices: [
       { key: "A", label: "不停手",     desc: "保住按压连续性，依靠已建立的信任网络。",   risk: null,                     next: "kept_working", effects: { compression_interrupt_time: 0,  family_trust: 1,  _pathLabel: "choice_5:A" } },
@@ -735,16 +785,16 @@ const SCENES = {
     reviewTags: ["第五阶段", "家属冲突", "已交接"],
     assets: {
       images: [
-        { url: "", cssClass: "bg-rush-in",   startTime: 0, endTime: 0 },
-        { url: "", cssClass: "bg-red-rope",  startTime: 4, endTime: 0 },
+        { url: "assets/images/family_accuse_handoff/main", cssClass: "bg-rush-in",   startTime: 0, endTime: 0 },
+        { url: "assets/images/family_accuse_handoff/detail", cssClass: "bg-red-rope",  startTime: 4, endTime: 0 },
       ],
       videos: [
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/family_accuse_handoff/main", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/family_accuse_handoff/alt", cssClass: "", startTime: 0, endTime: 0 },
       ],
       sounds: [
-        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
-        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.8 },
+        { url: "assets/audio/ambient/family_accuse_handoff__ambient_1", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "assets/audio/sfx/family_accuse_handoff__sfx_1", type: "sfx",     startTime: 0, endTime: 0, volume: 0.8 },
       ],
     },
     speed: { media: 1.0, text: 1.0, hold: 1.0 },
@@ -753,10 +803,15 @@ const SCENES = {
       { text: "你们在干什么？！你们是谁？！", hl: ["你们是谁"] }
     ],
     nextLines: [
-      { mode: "narration", text: "赵雪梅冲进来时先看到了雨棚外歪倒的电动车——黄色外卖箱翻在积水里。旁边一个中年女人拽住她小声说：\"你是不是家属？那边有个送外卖的在你爸身边，不知道是不是撞倒的……\"赵雪梅的脸瞬间白了。", hl: ["电动车", "黄色外卖箱", "是不是撞倒的"] },
-      { mode: "narration", text: "她拨开人群，看到一个年轻人正拼命按压父亲的胸口，节奏急促但稳定。旁边站着一个穿外卖雨衣的男人——王远——正弯腰盯着年轻人的手，嘴里仍在数着节拍。老人家左手腕的红绳和赵雪梅腕上的那根一模一样。", hl: ["红绳"] },
+      { mode: "narration", text: "赵雪梅冲进来时先看到了雨棚外歪倒的电动车", hl: ["电动车"] },
+      { mode: "dialogue", speaker: "围观女人", text: "你是不是家属？有个送外卖的在你爸身边蹲着", style: "character" },
+      { mode: "narration", text: "赵雪梅的脸瞬间白了，她拨开人群", hl: ["拨开人群"] },
+      { mode: "narration", text: "一个年轻人正拼命按压父亲的胸口，节奏急促但稳定", hl: ["节奏急促"] },
+      { mode: "narration", text: "旁边站着一个穿外卖雨衣的男人——王远——正弯腰盯着年轻人的手", hl: ["盯着年轻人的手"] },
+      { mode: "narration", text: "老人家左手腕的红绳和赵雪梅腕上的那根一模一样", hl: ["红绳"] },
       { text: "你把我爸怎么了？！是不是你撞的他？！", mode: "dialogue", speaker: "赵雪梅", hl: ["是不是你撞的"] },
-      { mode: "narration", text: "年轻路人的手没有停，但肩膀已经开始发抖——突如其来的叫骂让他的节奏乱了半拍。王远没有退开，反而站到路人背后，压低声音稳住节奏。", hl: ["节奏乱了半拍", "稳住节奏"] }
+      { mode: "narration", text: "年轻路人的手没有停，但肩膀被叫骂声震得开始发抖", hl: ["肩膀发抖"] },
+      { mode: "narration", text: "王远没有退开，站到路人背后压低声音稳住节奏", hl: ["稳住节奏"] }
     ],
     choices: [
       { key: "A", label: "让路人继续按", desc: "不让按压中断，你去拦住家属解释。",       risk: null,                     next: "kept_working", effects: { compression_interrupt_time: 0,  family_trust: 1,  _pathLabel: "choice_5:A" } },
@@ -777,16 +832,16 @@ const SCENES = {
     reviewTags: ["第五阶段", "继续按压"],
     assets: {
       images: [
-        { url: "", cssClass: "bg-keep-cpr",  startTime: 0, endTime: 0 },
-        { url: "", cssClass: "bg-witnesses", startTime: 3, endTime: 0 },
+        { url: "assets/images/kept_working/main", cssClass: "bg-keep-cpr",  startTime: 0, endTime: 0 },
+        { url: "assets/images/kept_working/detail", cssClass: "bg-witnesses", startTime: 3, endTime: 0 },
       ],
       videos: [
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/kept_working/main", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/kept_working/alt", cssClass: "", startTime: 0, endTime: 0 },
       ],
       sounds: [
-        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
-        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.7 },
+        { url: "assets/audio/ambient/kept_working__ambient_1", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "assets/audio/sfx/kept_working__sfx_1", type: "sfx",     startTime: 0, endTime: 0, volume: 0.7 },
       ],
     },
     speed: { media: 1.0, text: 1.0, hold: 1.0 },
@@ -815,16 +870,16 @@ const SCENES = {
     reviewTags: ["第五阶段", "停止按压"],
     assets: {
       images: [
-        { url: "", cssClass: "bg-stop",      startTime: 0, endTime: 0 },
-        { url: "", cssClass: "bg-still",     startTime: 2, endTime: 0 },
+        { url: "assets/images/stop_explain/main", cssClass: "bg-stop",      startTime: 0, endTime: 0 },
+        { url: "assets/images/stop_explain/detail", cssClass: "bg-still",     startTime: 2, endTime: 0 },
       ],
       videos: [
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/stop_explain/main", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/stop_explain/alt", cssClass: "", startTime: 0, endTime: 0 },
       ],
       sounds: [
-        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
-        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.6 },
+        { url: "assets/audio/ambient/stop_explain__ambient_1", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "assets/audio/sfx/stop_explain__sfx_1", type: "sfx",     startTime: 0, endTime: 0, volume: 0.6 },
       ],
     },
     speed: { media: 1.0, text: 1.0, hold: 1.0 },
@@ -833,9 +888,18 @@ const SCENES = {
       { text: "我只是个送外卖的，路过看到他倒地才过来帮忙的……", hl: ["送外卖的", "过来帮忙"] }
     ],
     nextLines: [
-      { mode: "narration", text: "赵雪梅死死盯着王远。他停下了——他为什么心虚？赵雪梅哭得更加撕心裂肺。", hl: ["他停下了", "为什么心虚"] },
-      { mode: "narration", text: "在他们争吵、解释的这24秒里，老人的胸口一片死寂，没有一个人去按压。那是生命流逝的声音。", hl: ["24秒", "一片死寂", "生命流逝的声音"] },
-      { mode: "narration", text: "王远猛然意识到自己的手离开了多久，猛地重新跪下去——\"继续按！别停！\"年轻人的手再次砸回老人胸口。中断的24秒不会回来，但还没结束的抢救不能就此停下。", hl: ["重新跪下去", "不能就此停下"] }
+      { mode: "narration", text: "赵雪梅死死盯着王远", hl: ["死死盯着"] },
+      { mode: "narration", text: "他停下了——他为什么心虚", hl: ["为什么心虚"] },
+      { mode: "narration", text: "赵雪梅哭得更加撕心裂肺", hl: ["撕心裂肺"] },
+      { mode: "narration", text: "在这争吵、解释的24秒里，老人的胸口一片死寂", hl: ["24秒", "一片死寂"] },
+      { mode: "narration", text: "没有一个人去按压，那是生命流逝的声音", hl: ["生命流逝"] },
+      { mode: "narration", text: "王远猛然回过神来，重新跪下去", hl: ["重新跪下去"] },
+      { mode: "narration", text: "\"继续按！别停！\"", hl: ["别停"] },
+      { mode: "narration", text: "中断的24秒不会回来，但抢救不能就此停下", hl: ["不能就此停下"] },
+      { mode: "narration", text: "就在这僵持的缝隙里，马志国抱着AED黄色箱子冲回雨棚下", hl: ["AED黄色箱子"] },
+      { mode: "narration", text: "他看到对峙的两拨人和刚恢复的按压，把箱子放在台阶边", hl: ["放在台阶边"] },
+      { mode: "dialogue", speaker: "马志国", text: "AED拿来了！这到底怎么回事？", hl: ["AED拿来了"] },
+      { mode: "narration", text: "AED的出现像一盆冷水，浇停了争吵", hl: ["浇停了争吵"] }
     ],
     next: "aed_protocol_start",
     condition(state) {
@@ -857,16 +921,16 @@ const SCENES = {
     reviewTags: ["结局", "坏结局"],
     assets: {
       images: [
-        { url: "", cssClass: "bg-late",      startTime: 0, endTime: 0 },
-        { url: "", cssClass: "bg-shoe",      startTime: 4, endTime: 0 },
+        { url: "assets/images/bad_ending/main", cssClass: "bg-late",      startTime: 0, endTime: 0 },
+        { url: "assets/images/bad_ending/detail", cssClass: "bg-shoe",      startTime: 4, endTime: 0 },
       ],
       videos: [
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/bad_ending/main", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/bad_ending/alt", cssClass: "", startTime: 0, endTime: 0 },
       ],
       sounds: [
-        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
-        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.7 },
+        { url: "assets/audio/ambient/bad_ending__ambient_1", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "assets/audio/sfx/bad_ending__sfx_1", type: "sfx",     startTime: 0, endTime: 0, volume: 0.7 },
       ],
     },
     speed: { media: 1.0, text: 1.0, hold: 1.0 },
@@ -895,24 +959,24 @@ const SCENES = {
     reviewTags: ["第六阶段", "AED"],
     assets: {
       images: [
-        { url: "", cssClass: "bg-aed-box",   startTime: 0, endTime: 0 },
-        { url: "", cssClass: "bg-aed-place", startTime: 2, endTime: 0 },
+        { url: "assets/images/aed_protocol_start/main", cssClass: "bg-aed-box",   startTime: 0, endTime: 0 },
+        { url: "assets/images/aed_protocol_start/detail", cssClass: "bg-aed-place", startTime: 2, endTime: 0 },
       ],
       videos: [
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/aed_protocol_start/main", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/aed_protocol_start/alt", cssClass: "", startTime: 0, endTime: 0 },
       ],
       sounds: [
-        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
-        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.6 },
+        { url: "assets/audio/ambient/aed_protocol_start__ambient_1", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "assets/audio/sfx/aed_protocol_start__sfx_1", type: "sfx",     startTime: 0, endTime: 0, volume: 0.6 },
       ],
     },
     speed: { media: 1.0, text: 1.0, hold: 1.0 },
     lines: [
-      { text: "马志国抱着AED从站内冲回雨棚下。", hl: ["AED"] }
+      { text: "AED到了。王远把它放到雨棚内侧相对干燥的台阶边。", hl: ["AED", "相对干燥"] }
     ],
     nextLines: [
-      { mode: "narration", text: "王远把AED放到雨棚内侧相对干燥的台阶边。孙建国继续举着免提，林小雨帮忙把周边人和杂物清开。", hl: ["相对干燥"] },
+      { mode: "narration", text: "孙建国继续举着免提，林小雨帮忙把周边人和杂物清开", hl: ["免提", "杂物清开"] },
       { mode: "narration", text: "AED会自动分析心律，人只负责开机、贴片、清场，并按语音提示执行。", hl: ["自动分析心律", "开机", "贴片", "清场"], important: true },
       { mode: "dialogue", speaker: "120调度员", text: "不要搬动他，保持平躺，就地按压。周围人散开。", hl: ["就地按压", "散开"], style: "dispatcher" }
     ],
@@ -931,16 +995,16 @@ const SCENES = {
     reviewTags: ["第六阶段", "AED"],
     assets: {
       images: [
-        { url: "", cssClass: "bg-aed-wipe",  startTime: 0, endTime: 0 },
-        { url: "", cssClass: "bg-aed-pads",  startTime: 2, endTime: 0 },
+        { url: "assets/images/aed_clear_space/main", cssClass: "bg-aed-wipe",  startTime: 0, endTime: 0 },
+        { url: "assets/images/aed_clear_space/detail", cssClass: "bg-aed-pads",  startTime: 2, endTime: 0 },
       ],
       videos: [
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/aed_clear_space/main", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/aed_clear_space/alt", cssClass: "", startTime: 0, endTime: 0 },
       ],
       sounds: [
-        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
-        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.6 },
+        { url: "assets/audio/ambient/aed_clear_space__ambient_1", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "assets/audio/sfx/aed_clear_space__sfx_1", type: "sfx",     startTime: 0, endTime: 0, volume: 0.6 },
       ],
     },
     speed: { media: 1.0, text: 1.0, hold: 1.0 },
@@ -966,16 +1030,16 @@ const SCENES = {
     reviewTags: ["第六阶段", "AED"],
     assets: {
       images: [
-        { url: "", cssClass: "bg-aed-analyze", startTime: 0, endTime: 0 },
-        { url: "", cssClass: "bg-aed-shock",   startTime: 3, endTime: 0 },
+        { url: "assets/images/aed_execute/main", cssClass: "bg-aed-analyze", startTime: 0, endTime: 0 },
+        { url: "assets/images/aed_execute/detail", cssClass: "bg-aed-shock",   startTime: 3, endTime: 0 },
       ],
       videos: [
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/aed_execute/main", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/aed_execute/alt", cssClass: "", startTime: 0, endTime: 0 },
       ],
       sounds: [
-        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
-        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.7 },
+        { url: "assets/audio/ambient/aed_execute__ambient_1", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "assets/audio/sfx/aed_execute__sfx_1", type: "sfx",     startTime: 0, endTime: 0, volume: 0.7 },
       ],
     },
     speed: { media: 1.0, text: 1.0, hold: 1.0 },
@@ -1003,16 +1067,16 @@ const SCENES = {
     reviewTags: ["第六阶段", "尾声"],
     assets: {
       images: [
-        { url: "", cssClass: "bg-ambulance", startTime: 0, endTime: 0 },
-        { url: "", cssClass: "bg-stand",     startTime: 4, endTime: 0 },
+        { url: "assets/images/ambulance/main", cssClass: "bg-ambulance", startTime: 0, endTime: 0 },
+        { url: "assets/images/ambulance/detail", cssClass: "bg-stand",     startTime: 4, endTime: 0 },
       ],
       videos: [
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/ambulance/main", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/ambulance/alt", cssClass: "", startTime: 0, endTime: 0 },
       ],
       sounds: [
-        { url: "", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
-        { url: "", type: "sfx",     startTime: 0, endTime: 0, volume: 0.8 },
+        { url: "assets/audio/ambient/ambulance__ambient_1", type: "ambient", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "assets/audio/sfx/ambulance__sfx_1", type: "sfx",     startTime: 0, endTime: 0, volume: 0.8 },
       ],
     },
     speed: { media: 1.0, text: 1.0, hold: 1.0 },
@@ -1038,16 +1102,16 @@ const SCENES = {
     reviewTags: ["第六阶段", "结算"],
     assets: {
       images: [
-        { url: "", cssClass: "bg-map-city",  startTime: 0, endTime: 0 },
-        { url: "", cssClass: "bg-map-dot",   startTime: 3, endTime: 0 },
+        { url: "assets/images/aed_map/main", cssClass: "bg-map-city",  startTime: 0, endTime: 0 },
+        { url: "assets/images/aed_map/detail", cssClass: "bg-map-dot",   startTime: 3, endTime: 0 },
       ],
       videos: [
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/aed_map/main", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/aed_map/alt", cssClass: "", startTime: 0, endTime: 0 },
       ],
       sounds: [
-        { url: "", type: "bgm", startTime: 0, endTime: 0, volume: 0.4 },
-        { url: "", type: "sfx", startTime: 0, endTime: 0, volume: 0.5 },
+        { url: "assets/audio/bgm/aed_map__bgm_1", type: "bgm", startTime: 0, endTime: 0, volume: 0.4 },
+        { url: "assets/audio/sfx/aed_map__sfx_1", type: "sfx", startTime: 0, endTime: 0, volume: 0.5 },
       ],
     },
     speed: { media: 1.0, text: 1.0, hold: 1.0 },
@@ -1073,16 +1137,16 @@ const SCENES = {
     reviewTags: ["复盘"],
     assets: {
       images: [
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/images/chapter_review/main", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/images/chapter_review/detail", cssClass: "", startTime: 0, endTime: 0 },
       ],
       videos: [
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
-        { url: "", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/chapter_review/main", cssClass: "", startTime: 0, endTime: 0 },
+        { url: "assets/videos/chapter_review/alt", cssClass: "", startTime: 0, endTime: 0 },
       ],
       sounds: [
-        { url: "", type: "bgm", startTime: 0, endTime: 0, volume: 0.4 },
-        { url: "", type: "",    startTime: 0, endTime: 0, volume: 1.0 },
+        { url: "assets/audio/bgm/chapter_review__bgm_1", type: "bgm", startTime: 0, endTime: 0, volume: 0.4 },
+        { url: "assets/audio/sfx/chapter_review__sfx_1", type: "sfx",    startTime: 0, endTime: 0, volume: 1.0 },
       ],
     },
     speed: { media: 1.0, text: 1.0, hold: 1.0 },

@@ -15,12 +15,22 @@ const Interactions = {
   _aedStep: 0,
   _aedCleared: false,
 
-  // ==================== CPR 节奏模块 ====================
+  // ==================== CPR 节奏模块（双层：节奏维持+现场干扰） ====================
   startCPR(callback) {
     this._active = true;
     this._cprBeatTimes = [];
     this._cprBeatCount = 0;
     this._cprLastBeat = 0;
+    this._cprPhases = [
+      { at: 0,  zoneLeft: 32, zoneWidth: 36, text: "按压不断，胸廓回弹" },
+      { at: 10, zoneLeft: 35, zoneWidth: 30, text: "手臂开始发酸……保持深度" },
+      { at: 18, zoneLeft: 37, zoneWidth: 26, text: "汗水模糊了视线，有人在问：他到底会不会按" },
+      { at: 24, zoneLeft: 38, zoneWidth: 24, text: "最后几下了，别松劲" },
+    ];
+    this._cprPauseStart = 0;
+    this._cprTotalPause = 0;
+    this._cprCurrentPhase = 0;
+    this._cprEventFired = {};
 
     const module = document.getElementById("cprModule");
     const beatBar = document.getElementById("cprBeatBar");
@@ -28,39 +38,58 @@ const Interactions = {
     const qualityDisplay = document.getElementById("cprQualityDisplay");
     const feedbackEl = document.getElementById("cprFeedback");
     const progressFill = document.getElementById("cprBarFill");
+    const zoneEl = document.getElementById("cprTargetZone");
+    const hintEl = module?.querySelector(".cpr-hint");
 
     if (!module) return;
 
     document.getElementById("interactionLayer")?.classList.add("active");
     module.classList.add("active");
-    if (progressFill) {
-      progressFill.style.width = "0%";
-      progressFill.className = "cpr-bar-fill";
-    }
+    if (progressFill) { progressFill.style.width = "0%"; progressFill.className = "cpr-bar-fill"; }
     GameState.cpr_active = true;
     GameState.cpr_total_beats = 0;
     GameState.cpr_good_beats = 0;
 
-    // 节奏目标区域动画
-    const zoneEl = document.getElementById("cprTargetZone");
-    let indicatorPos = 0;
-    let direction = 1;
+    // 设置初始目标区域
+    this._updateCPRZone(zoneEl, 0);
 
-    function animateIndicator() {
+    // 指示器动画
+    let indicatorPos = 50; let direction = 1;
+    const animateIndicator = () => {
       if (!this._active) return;
-      indicatorPos += direction * 2.2;
+      const speed = 1.8 + this._cprCurrentPhase * 0.4;
+      indicatorPos += direction * speed;
       if (indicatorPos >= 100) direction = -1;
       if (indicatorPos <= 0) direction = 1;
       if (beatBar) beatBar.style.left = indicatorPos + "%";
-      this._cprAnimFrame = requestAnimationFrame(() => animateIndicator());
-    }
-    animateIndicator = animateIndicator.bind(this);
+      this._cprAnimFrame = requestAnimationFrame(animateIndicator);
+    };
     animateIndicator();
 
-    // 监听空格/点击
+    // 暂停检测定时器
+    this._cprPauseCheck = setInterval(() => {
+      if (!this._active || this._cprBeatCount === 0) return;
+      const elapsed = (Date.now() - this._cprLastBeat) / 1000;
+      if (elapsed > 2.5 && !this._cprPauseStart) {
+        this._cprPauseStart = Date.now();
+        this._showCPREvent("按压中断！胸廓需要持续按压");
+      }
+    }, 800);
+
+    // 按压事件
     this._onBeat = (e) => {
       if (!this._active) return;
       if (e && (e.target.closest("#pauseMenu") || e.target.closest("#choiceLayer"))) return;
+
+      // 计算中断时间
+      if (this._cprPauseStart) {
+        const pauseDuration = (Date.now() - this._cprPauseStart) / 1000;
+        this._cprTotalPause += pauseDuration;
+        this._cprPauseStart = 0;
+        if (pauseDuration > 2) {
+          GameState.compression_quality = Math.max(0, GameState.compression_quality - 8);
+        }
+      }
 
       const now = Date.now();
       if (this._cprLastBeat === 0) {
@@ -68,80 +97,101 @@ const Interactions = {
         this._cprBeatCount++;
         GameState.cpr_total_beats++;
         if (progressFill) progressFill.style.width = `${(this._cprBeatCount / this._cprRequiredBeats) * 100}%`;
-        if (feedbackEl) { feedbackEl.textContent = "第一下，继续"; feedbackEl.className = "cpr-feedback good"; }
+        if (feedbackEl) { feedbackEl.textContent = "第一下，继续！"; feedbackEl.className = "cpr-feedback good"; }
+        this._checkCPRPhase(hintEl, feedbackEl, zoneEl);
         return;
       }
 
-      const interval = (now - this._cprLastBeat) / 1000; // 秒
+      const interval = (now - this._cprLastBeat) / 1000;
       this._cprLastBeat = now;
       this._cprBeatTimes.push(interval);
       this._cprBeatCount++;
       GameState.cpr_total_beats++;
       if (progressFill) progressFill.style.width = `${Math.min(100, (this._cprBeatCount / this._cprRequiredBeats) * 100)}%`;
 
-      // 计算当前BPM (最近5次平均)
+      // BPM 计算
       const recentBeats = this._cprBeatTimes.slice(-5);
       const avgInterval = recentBeats.reduce((a, b) => a + b, 0) / recentBeats.length;
       const bpm = Math.round(60 / avgInterval);
-
       if (rateDisplay) rateDisplay.textContent = bpm;
 
-      // 判断是否在合格区间 (100-120 BPM)
-      let isGood = bpm >= 100 && bpm <= 120;
-      let isWarning = (bpm >= 90 && bpm < 100) || (bpm > 120 && bpm <= 135);
+      // 质量判定
+      const isGood = bpm >= 100 && bpm <= 120;
+      const isWarning = (bpm >= 90 && bpm < 100) || (bpm > 120 && bpm <= 135);
 
       if (isGood) {
         GameState.cpr_good_beats++;
-        GameState.compression_quality = Math.min(100, GameState.compression_quality + 1);
-        if (feedbackEl) { feedbackEl.textContent = "按压质量 · 良好"; feedbackEl.className = "cpr-feedback good"; }
+        GameState.compression_quality = Math.min(100, GameState.compression_quality + 1.5);
+        if (feedbackEl) { feedbackEl.textContent = ["稳定", "按得好", "保持节奏", "就这样"][Math.floor(Math.random() * 4)]; feedbackEl.className = "cpr-feedback good"; }
+        if (progressFill) progressFill.className = "cpr-bar-fill";
       } else if (isWarning) {
         GameState.compression_quality = Math.max(0, GameState.compression_quality - 2);
-        if (feedbackEl) { feedbackEl.textContent = "按压质量 · 一般"; feedbackEl.className = "cpr-feedback warn"; }
+        if (feedbackEl) { feedbackEl.textContent = "调整节奏"; feedbackEl.className = "cpr-feedback warn"; }
+        if (progressFill) progressFill.className = "cpr-bar-fill warning";
       } else {
         GameState.compression_quality = Math.max(0, GameState.compression_quality - 4);
-        if (feedbackEl) { feedbackEl.textContent = "按压偏离 · 调整节奏"; feedbackEl.className = "cpr-feedback warn"; }
+        if (feedbackEl) { feedbackEl.textContent = bpm < 90 ? "太慢了！" : "太快了！"; feedbackEl.className = "cpr-feedback warn"; }
+        if (progressFill) progressFill.className = "cpr-bar-fill danger";
       }
 
-      // 颜色反馈
       if (rateDisplay) {
-        rateDisplay.className = "cpr-rate" + (isGood ? "" : " warning") + (!isGood && !isWarning ? " danger" : "");
+        rateDisplay.className = "cpr-rate" + (isGood ? "" : isWarning ? " warning" : " danger");
       }
-
-      // 更新质量条
       if (qualityDisplay) {
         const q = GameState.compression_quality;
         qualityDisplay.textContent = q >= 85 ? "优秀" : q >= 70 ? "良好" : q >= 50 ? "一般" : "下降";
       }
 
-      // 检查是否完成
+      // 阶段检查
+      this._checkCPRPhase(hintEl, feedbackEl, zoneEl);
+
       if (this._cprBeatCount >= this._cprRequiredBeats) {
         this._completeCPR(callback);
       }
     };
 
     document.addEventListener("keydown", this._cprKeyHandler = (e) => {
-      if (e.code === "Space") {
-        e.preventDefault();
-        if (this._onBeat) this._onBeat(e);
-      }
+      if (e.code === "Space") { e.preventDefault(); if (this._onBeat) this._onBeat(e); }
     });
-
     module.addEventListener("pointerdown", this._cprPointerHandler = (e) => {
-      e.preventDefault();
-      if (this._onBeat) this._onBeat(e);
+      e.preventDefault(); if (this._onBeat) this._onBeat(e);
     });
+  },
 
-    // 疲劳衰减（持续一段时间后，质量自然下降）
-    this._fatigueTimer = setTimeout(() => {
-      if (this._active) {
-        GameState.compression_quality = Math.max(0, GameState.compression_quality - 5);
+  _updateCPRZone(zoneEl, phaseIdx) {
+    const p = this._cprPhases[Math.min(phaseIdx, this._cprPhases.length - 1)];
+    if (zoneEl) {
+      zoneEl.style.left = p.zoneLeft + "%";
+      zoneEl.style.width = p.zoneWidth + "%";
+      zoneEl.style.transition = "all 0.6s ease";
+    }
+  },
+
+  _checkCPRPhase(hintEl, feedbackEl, zoneEl) {
+    for (let i = this._cprPhases.length - 1; i >= 0; i--) {
+      if (this._cprBeatCount >= this._cprPhases[i].at && i > this._cprCurrentPhase) {
+        this._cprCurrentPhase = i;
+        this._updateCPRZone(zoneEl, i);
+        // 阶段切换提示
+        const p = this._cprPhases[i];
+        if (!this._cprEventFired[i]) {
+          this._cprEventFired[i] = true;
+          if (hintEl) hintEl.textContent = p.text;
+          if (feedbackEl) { feedbackEl.textContent = i > 0 ? "注意节奏" : ""; feedbackEl.className = "cpr-feedback good"; }
+        }
+        break;
       }
-    }, 8000);
+    }
+  },
+
+  _showCPREvent(text) {
+    if (typeof window.showStateFeedback === "function") {
+      window.showStateFeedback(text, "negative");
+    }
   },
 
   _completeCPR(callback) {
-    // 清理
-    if (this._fatigueTimer) clearTimeout(this._fatigueTimer);
+    if (this._cprPauseCheck) clearInterval(this._cprPauseCheck);
     if (this._cprAnimFrame) cancelAnimationFrame(this._cprAnimFrame);
     document.removeEventListener("keydown", this._cprKeyHandler);
     const module = document.getElementById("cprModule");
@@ -150,24 +200,17 @@ const Interactions = {
     }
     this._active = false;
     GameState.cpr_active = false;
+    GameState.compression_interrupt_time += Math.round(this._cprTotalPause);
 
-    // 最终反馈
     const finalQuality = GameState.compression_quality;
     const label = finalQuality >= 85 ? "优秀" : finalQuality >= 70 ? "良好" : finalQuality >= 50 ? "一般" : "下降";
-
-    // 显示小结
     const feedbacks = [
       { text: `按压质量：${finalQuality} (${label})`, type: finalQuality >= 70 ? "positive" : "warning" },
-      { text: `中断时间：0秒`, type: "positive" },
-      { text: `体力状态：${finalQuality < 60 ? "严重下降" : "下降"}`, type: finalQuality < 60 ? "danger" : "neutral" }
+      { text: `中断时间：${Math.round(this._cprTotalPause)}秒`, type: this._cprTotalPause < 3 ? "positive" : "negative" },
     ];
-
     if (module) module.classList.remove("active");
     document.getElementById("interactionLayer")?.classList.remove("active");
-
-    // 隐藏CPR模块，延迟调用callback
     if (callback) {
-      // 先显示反馈
       if (typeof window.showStateFeedback === "function") {
         feedbacks.forEach(f => window.showStateFeedback(f.text, f.type));
       }
@@ -178,7 +221,7 @@ const Interactions = {
   stopCPR() {
     this._active = false;
     GameState.cpr_active = false;
-    if (this._fatigueTimer) clearTimeout(this._fatigueTimer);
+    if (this._cprPauseCheck) clearInterval(this._cprPauseCheck);
     if (this._cprAnimFrame) cancelAnimationFrame(this._cprAnimFrame);
     document.removeEventListener("keydown", this._cprKeyHandler);
     const module = document.getElementById("cprModule");
