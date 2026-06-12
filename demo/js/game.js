@@ -434,18 +434,25 @@ const Game = {
   // ==================== 底部字幕带：narration/dialogue ====================
   // 当前行结束回调（点击跳过时触发）
   _barLine(line, type, speaker, style) {
-    // 先结束上一行的等待
-    resolve();
-
     return new Promise(resolve => {
+      if (this.typingTimer) clearTimeout(this.typingTimer);
+      this._lineResolve = null;
       this._lineResolve = resolve;
 
       const bar = this._bar();
-      if (!bar) { resolve(); return; }
+      if (!bar) {
+        this._lineResolve = null;
+        resolve();
+        return;
+      }
 
       const isNarration = type === "narration";
       const text = isNarration ? this._stripPunctuation(line.text) : line.text;
-      if (!text) { resolve(); return; }
+      if (!text) {
+        this._lineResolve = null;
+        resolve();
+        return;
+      }
 
       // 清空旧内容再显示新行
       bar.innerHTML = "";
@@ -464,7 +471,10 @@ const Game = {
       if (isNarration) {
         el.textContent = text;
         bar.appendChild(el);
-        this.typingTimer = setTimeout(resolve, line.hold || 2000);
+        this.typingTimer = setTimeout(() => {
+          this._lineResolve = null;
+          resolve();
+        }, line.hold || 2000);
       } else {
         const spans = [];
         for (let i = 0; i < text.length; i++) {
@@ -486,7 +496,13 @@ const Game = {
         let charIdx = 0;
         const speed = line.speed || 38;
         const revealNext = () => {
-          if (charIdx >= spans.length) { this.typingTimer = setTimeout(resolve, 600); return; }
+          if (charIdx >= spans.length) {
+            this.typingTimer = setTimeout(() => {
+              this._lineResolve = null;
+              resolve();
+            }, 600);
+            return;
+          }
           const s = spans[charIdx];
           if (isHl(s.index)) s.el.classList.add("hl");
           s.el.classList.add("revealed");
@@ -511,11 +527,16 @@ const Game = {
 
   // ==================== 底部字幕带：对话注释小字 ====================
   _barNote(text) {
-    resolve();
     return new Promise(resolve => {
+      if (this.typingTimer) clearTimeout(this.typingTimer);
+      this._lineResolve = null;
       this._lineResolve = resolve;
       const bar = this._bar();
-      if (!bar || !text) { resolve(); return; }
+      if (!bar || !text) {
+        this._lineResolve = null;
+        resolve();
+        return;
+      }
       const el = document.createElement("div");
       el.className = "sb-note";
       const spans = [];
@@ -529,7 +550,13 @@ const Game = {
       bar.appendChild(el);
       let idx = 0;
       const reveal = () => {
-        if (idx >= spans.length) { this.typingTimer = setTimeout(resolve, 200); return; }
+        if (idx >= spans.length) {
+          this.typingTimer = setTimeout(() => {
+            this._lineResolve = null;
+            resolve();
+          }, 200);
+          return;
+        }
         spans[idx].classList.add("revealed");
         idx++;
         this.typingTimer = setTimeout(reveal, 30);
