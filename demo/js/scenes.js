@@ -14,6 +14,22 @@
 
 const SCENES = {
 
+  // ==================== 序幕标题卡 ====================
+
+  prologue_title: {
+    id: "prologue_title",
+    chapter: "",
+    title: "",
+    stage: "",
+    mode: "titlecard",
+    titleText: "序 幕",
+    reviewTags: ["序幕"],
+    assets: null,
+    speed: null,
+    lines: [],
+    next: "prologue_factory"
+  },
+
   // ==================== 序幕 ====================
 
   prologue_factory: {

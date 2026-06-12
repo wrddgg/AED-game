@@ -64,7 +64,7 @@ const Game = {
       start.classList.add("fade-out");
       setTimeout(() => { start.style.display = "none"; }, 1000);
     }
-    setTimeout(() => this.goToScene("prologue_factory"), 600);
+    setTimeout(() => this.goToScene("prologue_title"), 600);
   },
 
   // ==================== 场景导航 ====================
@@ -152,6 +152,41 @@ const Game = {
     this._clearBar();
   },
 
+  // ==================== 标题卡：全屏黑底+白字渐现渐隐 ====================
+  async _showTitleCard(titleText) {
+    const layer = document.getElementById("intertitleLayer");
+    if (!layer) return;
+
+    // 黑底大标题
+    layer.style.background = "#000";
+    layer.className = "active";
+    layer.innerHTML = "";
+
+    const el = document.createElement("div");
+    el.style.cssText = `
+      font-family: var(--font-narrator);
+      font-size: 52px;
+      letter-spacing: 0.3em;
+      color: rgba(255,255,255,0.9);
+      text-align: center;
+    `;
+    el.textContent = titleText;
+    layer.appendChild(el);
+
+    // 渐现停留
+    await this._delay(1800);
+
+    // 渐隐
+    layer.classList.add("fading");
+
+    await this._delay(800);
+
+    // 清理
+    layer.className = "";
+    layer.innerHTML = "";
+    layer.style.background = "";
+  },
+
   // ==================== 工具：去标点（narration用） ====================
   _stripPunctuation(text) {
     return text.replace(/[，。！？；：""''（）【】《》、…—\-—\s]/g, "").trim();
@@ -162,6 +197,17 @@ const Game = {
 
   async _renderScene(scene) {
     this.isTyping = true;
+
+    // ===== 标题卡模式：全屏黑底+白色大字渐现渐隐 =====
+    if (scene.mode === "titlecard") {
+      await this._showTitleCard(scene.titleText || "");
+      this.isTyping = false;
+      // 标题卡结束后自动推进
+      const nextId = this._resolveNext(scene);
+      if (nextId) { await this._delay(400); this.goToScene(nextId); }
+      return;
+    }
+
     this._clearBar();
 
     // ===== 渲染主行 =====
