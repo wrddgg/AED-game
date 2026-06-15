@@ -1,4 +1,4 @@
-# prologue_factory · 抹不掉的沉默
+# prologue_busstop · 抹不掉的沉默
 
 > **章节**：序幕 | **Stage**：bus_stop | **模式**：narration
 > **风格**：夜景，回忆色调，冷清寂寥

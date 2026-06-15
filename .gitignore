@@ -1,0 +1,15 @@
+# 图片素材（AI生成，不上传）
+demo/assets/images/**/*.png
+demo/assets/images/**/*.jpg
+demo/assets/images/**/*.jpeg
+demo/assets/images/**/*.webp
+
+# 视频素材
+demo/assets/videos/**/*.mp4
+
+# 压缩包
+*.rar
+
+# 临时脚本
+_*.js
+_*.md

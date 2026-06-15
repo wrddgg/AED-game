@@ -39,23 +39,23 @@ const SCENES = {
     assets: null,
     speed: null,
     lines: [],
-    next: "prologue_factory"
+    next: "prologue_busstop"
   },
 
   // ==================== 序幕 ====================
 
-  prologue_factory: {
-    id: "prologue_factory",
+  prologue_busstop: {
+    id: "prologue_busstop",
     chapter: "序幕",
     title: "抹不掉的沉默",
     stage: "bus_stop",
     mode: "narration",
     reviewTags: ["序幕"],
     assets: {
-      images: _imgs("prologue_factory", 10),
+      images: _imgs("prologue_busstop", 10),
       sounds: [
-        { url: "assets/audio/bgm/prologue_factory__bgm_1", type: "bgm", startTime: 0, endTime: 0, volume: 0.6 },
-        { url: "assets/audio/sfx/prologue_factory__sfx_1", type: "sfx", startTime: 0, endTime: 0, volume: 0.8 },
+        { url: "assets/audio/bgm/prologue_busstop__bgm_1", type: "bgm", startTime: 0, endTime: 0, volume: 0.6 },
+        { url: "assets/audio/sfx/prologue_busstop__sfx_1", type: "sfx", startTime: 0, endTime: 0, volume: 0.8 },
       ],
     },
     speed: { media: 1.0, text: 1.0, hold: 1.0 },
