@@ -376,7 +376,7 @@ html, body {
   background: transparent;
   transition: background 0.6s ease;
 }
-/* ---------- 旁白行：白色、衬线、无标点、居中、即时切换 ---------- */
+/* ---------- 旁白行：白色、衬线、居中、即时显示 ---------- */
 .sb-narration {
   font-family: var(--font-narrator);
   font-size: 36px;
@@ -385,9 +385,11 @@ html, body {
   color: #ffffff;
   text-align: center;
   width: min(78vw, 960px);
+  opacity: 0;
+  animation: sbFadeIn 0.35s ease-out forwards;
 }
 
-/* ---------- 对话行：黑体、带speaker ---------- */
+/* ---------- 对话行：黑体、带speaker、即时显示 ---------- */
 .sb-dialogue {
   font-family: var(--font-ui);
   font-size: 30px;
@@ -399,11 +401,6 @@ html, body {
   opacity: 0;
   animation: sbFadeIn 0.35s ease-out forwards;
 }
-.sb-dialogue .char {
-  opacity: 0;
-  transition: opacity 0.035s ease;
-}
-.sb-dialogue .char.revealed { opacity: 1; }
 
 /* speaker tag 行内标签 */
 .sb-speaker {
@@ -432,19 +429,6 @@ html, body {
   width: min(60vw, 600px);
   opacity: 0;
   animation: sbFadeIn 0.5s ease-out 0.2s forwards;
-}
-.sb-note .char {
-  opacity: 0;
-  transition: opacity 0.03s ease;
-}
-.sb-note .char.revealed { opacity: 1; }
-
-/* ---------- 高亮 ---------- */
-.sb-narration .char.hl,
-.sb-dialogue .char.hl {
-  color: var(--amber);
-  font-weight: 700;
-  text-shadow: 0 0 6px rgba(245,200,66,0.25);
 }
 
 /* ---------- 通用动画 ---------- */

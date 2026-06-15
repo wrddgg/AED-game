@@ -12,6 +12,8 @@ const Game = {
   skipNext: false,
   rainActive: false,
   rainInterval: null,
+  sceneTimerIds: [],
+  sceneMediaState: null,
 
   // ==================== 初始化 ====================
   init() {
@@ -75,9 +77,10 @@ const Game = {
       return;
     }
 
+    if (this.typingTimer) clearTimeout(this.typingTimer);
+    this._clearSceneTimers();
     this.currentSceneId = sceneId;
     this.isTyping = false;
-    if (this.typingTimer) clearTimeout(this.typingTimer);
 
     Interactions.cleanup();
     this._hideAllModules();
@@ -187,13 +190,125 @@ const Game = {
     layer.style.background = "";
   },
 
-  // ==================== 工具：去标点（narration用） ====================
-  _stripPunctuation(text) {
-    return text.replace(/[，。！？；：""''（）【】《》、…—\-—\s]/g, "").trim();
-  },
-
   // ==================== 工具：底部字幕带引用 ====================
   _bar() { return document.getElementById("subtitleBar"); },
+
+  _clearSceneTimers() {
+    this.sceneTimerIds.forEach(timerId => clearTimeout(timerId));
+    this.sceneTimerIds = [];
+    this.sceneMediaState = null;
+  },
+
+  _scheduleSceneTimer(sceneId, delayMs, callback) {
+    const safeDelay = Math.max(0, Number(delayMs) || 0);
+    const timerId = setTimeout(() => {
+      this.sceneTimerIds = this.sceneTimerIds.filter(id => id !== timerId);
+      if (this.currentSceneId !== sceneId) return;
+      callback();
+    }, safeDelay);
+
+    this.sceneTimerIds.push(timerId);
+    return timerId;
+  },
+
+  _now() {
+    return (window.performance && typeof window.performance.now === "function")
+      ? window.performance.now()
+      : Date.now();
+  },
+
+  _cueMs(value) {
+    const seconds = Number(value);
+    return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : 0;
+  },
+
+  _buildImageTimeline(entries) {
+    const items = entries
+      .map((entry, index) => ({
+        entry,
+        index,
+        startMs: this._cueMs(entry.slot?.startTime),
+        endMs: this._cueMs(entry.slot?.endTime)
+      }))
+      .sort((a, b) => (a.startMs - b.startMs) || (a.index - b.index));
+
+    if (!items.length) {
+      return { items: [], timelineEndMs: 0 };
+    }
+
+    const uniqueStarts = [...new Set(items.map(item => item.startMs))].sort((a, b) => a - b);
+    const latestStartMs = uniqueStarts[uniqueStarts.length - 1] || 0;
+    const latestExplicitEndMs = items.reduce((max, item) => {
+      return item.endMs > item.startMs ? Math.max(max, item.endMs) : max;
+    }, 0);
+
+    const latestGroupHasExplicitEnd = items.some(item => {
+      return item.startMs === latestStartMs && item.endMs > item.startMs;
+    });
+
+    let timelineEndMs = latestExplicitEndMs;
+    if (latestStartMs > 0 && !latestGroupHasExplicitEnd) {
+      const previousStartMs = uniqueStarts.length > 1 ? uniqueStarts[uniqueStarts.length - 2] : 0;
+      const inferredHoldMs = Math.max(1200, latestStartMs - previousStartMs || 0);
+      timelineEndMs = Math.max(timelineEndMs, latestStartMs + inferredHoldMs);
+    }
+
+    return { items, timelineEndMs };
+  },
+
+  _setImageEntryVisible(entry, visible) {
+    if (!entry || !entry.element) return;
+
+    entry.shouldShow = visible;
+
+    if (visible) {
+      entry.element.classList.remove("fading");
+      if (entry.loaded && !entry.failed) {
+        entry.element.classList.add("active");
+        entry.hasShown = true;
+      }
+      return;
+    }
+
+    entry.element.classList.remove("active");
+    if (entry.loaded && !entry.failed && entry.hasShown) {
+      entry.element.classList.add("fading");
+    } else {
+      entry.element.classList.remove("fading");
+    }
+  },
+
+  _scheduleImageTimeline(scene, imageEntries) {
+    const { items, timelineEndMs } = this._buildImageTimeline(imageEntries);
+    this.sceneMediaState = {
+      sceneId: scene.id,
+      startedAt: this._now(),
+      timelineEndMs
+    };
+
+    if (!items.length) return;
+
+    items.forEach(item => {
+      this._scheduleSceneTimer(scene.id, item.startMs, () => {
+        this._setImageEntryVisible(item.entry, true);
+      });
+
+      if (item.endMs > item.startMs) {
+        this._scheduleSceneTimer(scene.id, item.endMs, () => {
+          this._setImageEntryVisible(item.entry, false);
+        });
+      }
+    });
+  },
+
+  _getRemainingSceneMediaMs(sceneId) {
+    if (!this.sceneMediaState || this.sceneMediaState.sceneId !== sceneId) {
+      return 0;
+    }
+
+    const remaining = this.sceneMediaState.timelineEndMs - (this._now() - this.sceneMediaState.startedAt);
+    return Math.max(0, remaining);
+  },
 
   async _renderScene(scene) {
     this.isTyping = true;
@@ -307,6 +422,19 @@ const Game = {
     if (!scene.choices && scene.mode !== "review") {
       const nextId = this._resolveNext(scene);
       if (nextId) {
+        // 序幕视频：prologue_phone 台词结束后播放开头视频
+        if (scene.playOpeningVideo) {
+          this._clearBar();
+          await this._delay(600);
+          if (this.currentSceneId !== scene.id) { this.isTyping = false; return; }
+          await this._playOpeningVideo();
+          if (this.currentSceneId !== scene.id) { this.isTyping = false; return; }
+        }
+
+        const remainingMediaMs = this._getRemainingSceneMediaMs(scene.id);
+        if (remainingMediaMs > 0) {
+          await this._delay(remainingMediaMs);
+        }
         await this._delay(800);
         if (this.currentSceneId !== scene.id) return;
         this.goToScene(nextId);
@@ -447,7 +575,7 @@ const Game = {
       }
 
       const isNarration = type === "narration";
-      const text = isNarration ? this._stripPunctuation(line.text) : line.text;
+      const text = line.text;
       if (!text) {
         this._lineResolve = null;
         resolve();
@@ -457,7 +585,6 @@ const Game = {
       // 清空旧内容再显示新行
       bar.innerHTML = "";
 
-      const hlWords = line.hl || [];
       const el = document.createElement("div");
       el.className = isNarration ? "sb-narration" : "sb-dialogue";
 
@@ -468,49 +595,14 @@ const Game = {
         el.appendChild(tag);
       }
 
-      if (isNarration) {
-        el.textContent = text;
-        bar.appendChild(el);
-        this.typingTimer = setTimeout(() => {
-          this._lineResolve = null;
-          resolve();
-        }, line.hold || 2000);
-      } else {
-        const spans = [];
-        for (let i = 0; i < text.length; i++) {
-          const span = document.createElement("span");
-          span.className = "char";
-          span.textContent = text[i];
-          el.appendChild(span);
-          spans.push({ el: span, index: i });
-        }
-        bar.appendChild(el);
+      el.appendChild(document.createTextNode(text));
+      bar.appendChild(el);
 
-        const hlRanges = [];
-        hlWords.forEach(w => {
-          let idx = text.indexOf(w);
-          while (idx !== -1) { hlRanges.push({ start: idx, end: idx + w.length }); idx = text.indexOf(w, idx + 1); }
-        });
-        const isHl = (idx) => hlRanges.some(r => idx >= r.start && idx < r.end);
-
-        let charIdx = 0;
-        const speed = line.speed || 38;
-        const revealNext = () => {
-          if (charIdx >= spans.length) {
-            this.typingTimer = setTimeout(() => {
-              this._lineResolve = null;
-              resolve();
-            }, 600);
-            return;
-          }
-          const s = spans[charIdx];
-          if (isHl(s.index)) s.el.classList.add("hl");
-          s.el.classList.add("revealed");
-          charIdx++;
-          this.typingTimer = setTimeout(revealNext, speed);
-        };
-        revealNext();
-      }
+      const hold = line.hold || (isNarration ? 2800 : 2200);
+      this.typingTimer = setTimeout(() => {
+        this._lineResolve = null;
+        resolve();
+      }, hold);
     });
   },
 
@@ -539,29 +631,12 @@ const Game = {
       }
       const el = document.createElement("div");
       el.className = "sb-note";
-      const spans = [];
-      for (let i = 0; i < text.length; i++) {
-        const span = document.createElement("span");
-        span.className = "char";
-        span.textContent = text[i];
-        el.appendChild(span);
-        spans.push(span);
-      }
+      el.textContent = text;
       bar.appendChild(el);
-      let idx = 0;
-      const reveal = () => {
-        if (idx >= spans.length) {
-          this.typingTimer = setTimeout(() => {
-            this._lineResolve = null;
-            resolve();
-          }, 200);
-          return;
-        }
-        spans[idx].classList.add("revealed");
-        idx++;
-        this.typingTimer = setTimeout(reveal, 30);
-      };
-      reveal();
+      this.typingTimer = setTimeout(() => {
+        this._lineResolve = null;
+        resolve();
+      }, 2800);
     });
   },
 
@@ -626,9 +701,11 @@ const Game = {
     stage.className = fallback;
   },
 
-  _loadImageSlot(slot, mediaLayer, stage, onResolve) {
+  _loadImageSlot(entry, mediaLayer, stage, onResolve) {
+    const slot = entry.slot;
     const candidates = this._buildAssetCandidates(slot.url, [".webp", ".png", ".jpg", ".jpeg"]);
     if (!candidates.length) {
+      entry.failed = true;
       onResolve(false);
       return;
     }
@@ -636,10 +713,12 @@ const Game = {
     const img = document.createElement("img");
     img.className = `scene-img ${slot.cssClass || ""}`;
     img.alt = "";
+    entry.element = img;
     let index = 0;
 
     const tryNext = () => {
       if (index >= candidates.length) {
+        entry.failed = true;
         img.remove();
         onResolve(false);
         return;
@@ -648,7 +727,12 @@ const Game = {
     };
 
     img.onload = () => {
-      img.classList.add("active");
+      entry.loaded = true;
+      img.classList.remove("fading");
+      if (entry.shouldShow) {
+        img.classList.add("active");
+        entry.hasShown = true;
+      }
       stage.style.backgroundImage = "";
       stage.className = "";
       onResolve(true);
@@ -717,6 +801,7 @@ const Game = {
     const stage = document.getElementById("stage");
     const mediaLayer = document.getElementById("mediaLayer");
     const fallback = scene.stage || "rain_road";
+    const sceneId = scene.id;
 
     if (mediaLayer) mediaLayer.innerHTML = "";
 
@@ -726,11 +811,20 @@ const Game = {
     const totalSlots = images.length + videos.length;
 
     if (!totalSlots) {
+      this.sceneMediaState = { sceneId, startedAt: this._now(), timelineEndMs: 0 };
       this._applyStageFallback(stage, fallback);
     } else {
       let resolvedSlots = 0;
       let loadedAny = false;
       let fallbackApplied = false;
+      const imageEntries = images.map(slot => ({
+        slot,
+        element: null,
+        loaded: false,
+        failed: false,
+        hasShown: false,
+        shouldShow: false
+      }));
 
       const handleResolved = (success) => {
         resolvedSlots += 1;
@@ -742,14 +836,15 @@ const Game = {
       };
 
       videos.forEach(slot => this._loadVideoSlot(slot, mediaLayer, stage, handleResolved));
-      images.forEach(slot => this._loadImageSlot(slot, mediaLayer, stage, handleResolved));
+      imageEntries.forEach(entry => this._loadImageSlot(entry, mediaLayer, stage, handleResolved));
+      this._scheduleImageTimeline(scene, imageEntries);
 
-      setTimeout(() => {
+      this._scheduleSceneTimer(sceneId, 5000, () => {
         if (!loadedAny && !fallbackApplied) {
           fallbackApplied = true;
           this._applyStageFallback(stage, fallback);
         }
-      }, 5000);
+      });
     }
 
     if (scene.speed) {
@@ -998,6 +1093,7 @@ const Game = {
   // ==================== 重新开始 ====================
   restartGame() {
     if (this.typingTimer) clearTimeout(this.typingTimer);
+    this._clearSceneTimers();
     this._hideAllModules();
     this._hideChoices();
     this._clearBar();
@@ -1011,6 +1107,69 @@ const Game = {
     GameState.init();
     this._updateHUD();
     this._showStartScreen();
+  },
+
+  // ==================== 开头视频播放 ====================
+  async _playOpeningVideo() {
+    return new Promise(resolve => {
+      const overlay = document.createElement("div");
+      overlay.id = "openingVideoOverlay";
+      overlay.style.cssText = `
+        position:fixed;top:0;left:0;width:100vw;height:100vh;
+        background:#000;z-index:9999;
+        display:flex;align-items:center;justify-content:center;
+        cursor:pointer;
+      `;
+
+      const video = document.createElement("video");
+      video.src = "assets/videos/opening.mp4";
+      video.style.cssText = "max-width:100%;max-height:100%;object-fit:contain;";
+      video.muted = false;
+      video.playsInline = false;
+
+      let resolved = false;
+      const cleanup = () => {
+        if (resolved) return;
+        resolved = true;
+        video.removeEventListener("ended", cleanup);
+        video.removeEventListener("error", cleanup);
+        document.removeEventListener("keydown", skipHandler);
+        overlay.removeEventListener("click", skipClick);
+        overlay.remove();
+        resolve();
+      };
+
+      const skipHandler = (e) => {
+        if (e.code === "Space" || e.code === "Escape" || e.code === "Enter") {
+          e.preventDefault();
+          cleanup();
+        }
+      };
+      const skipClick = () => cleanup();
+
+      video.addEventListener("ended", cleanup);
+      video.addEventListener("error", () => {
+        // 视频加载失败，直接跳过
+        cleanup();
+      });
+      document.addEventListener("keydown", skipHandler);
+      overlay.addEventListener("click", skipClick);
+
+      overlay.appendChild(video);
+      document.body.appendChild(overlay);
+
+      // 提示文字
+      const hint = document.createElement("div");
+      hint.style.cssText = `
+        position:absolute;bottom:8vh;left:50%;transform:translateX(-50%);
+        color:rgba(255,255,255,0.4);font-size:14px;letter-spacing:0.1em;
+        pointer-events:none;
+      `;
+      hint.textContent = "按任意键跳过";
+      overlay.appendChild(hint);
+
+      video.play().catch(() => cleanup());
+    });
   },
 
   // ==================== 工具 ====================
