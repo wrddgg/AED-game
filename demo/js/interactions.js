@@ -14,6 +14,10 @@ const Interactions = {
   _takeoverSuccess: false,
   _aedStep: 0,
   _aedCleared: false,
+  _cprCombo: 0,
+  _cprMaxCombo: 0,
+  _cprDifficultyPhase: 0,
+  _cprShakeEffect: null,
 
   // ==================== CPR 节奏模块（双层：节奏维持+现场干扰） ====================
   startCPR(callback) {
@@ -42,6 +46,19 @@ const Interactions = {
     const hintEl = module?.querySelector(".cpr-hint");
 
     if (!module) return;
+
+    // 启动CPR音效系统
+    AudioManager.startCprMetronome(120, 0.5);
+    AudioManager.startCrowdNoise(120, 0.25); // 周围人声
+    AudioManager.startTensionMusic(0.5, 0.35); // 紧张音乐
+
+    // 重置连击系统
+    this._cprCombo = 0;
+    this._cprMaxCombo = 0;
+    this._cprDifficultyPhase = 0;
+
+    // 创建连击显示
+    this._createComboDisplay(module);
 
     document.getElementById("interactionLayer")?.classList.add("active");
     module.classList.add("active");
@@ -73,6 +90,10 @@ const Interactions = {
       if (elapsed > 2.5 && !this._cprPauseStart) {
         this._cprPauseStart = Date.now();
         this._showCPREvent("按压中断！胸廓需要持续按压");
+        // 播放警告音效
+        AudioManager.playInterruptionWarning();
+        // 屏幕警告效果
+        this._showScreenWarning();
       }
     }, 800);
 
@@ -99,6 +120,8 @@ const Interactions = {
         if (progressFill) progressFill.style.width = `${(this._cprBeatCount / this._cprRequiredBeats) * 100}%`;
         if (feedbackEl) { feedbackEl.textContent = "第一下，继续！"; feedbackEl.className = "cpr-feedback good"; }
         this._checkCPRPhase(hintEl, feedbackEl, zoneEl);
+        // 第一下成就
+        Achievements.unlock('first_beat');
         return;
       }
 
@@ -124,14 +147,19 @@ const Interactions = {
         GameState.compression_quality = Math.min(100, GameState.compression_quality + 1.5);
         if (feedbackEl) { feedbackEl.textContent = ["稳定", "按得好", "保持节奏", "就这样"][Math.floor(Math.random() * 4)]; feedbackEl.className = "cpr-feedback good"; }
         if (progressFill) progressFill.className = "cpr-bar-fill";
+        this._updateComboDisplay(true);
+        this._triggerScreenShake(3);
       } else if (isWarning) {
         GameState.compression_quality = Math.max(0, GameState.compression_quality - 2);
         if (feedbackEl) { feedbackEl.textContent = "调整节奏"; feedbackEl.className = "cpr-feedback warn"; }
         if (progressFill) progressFill.className = "cpr-bar-fill warning";
+        this._updateComboDisplay(false);
       } else {
         GameState.compression_quality = Math.max(0, GameState.compression_quality - 4);
         if (feedbackEl) { feedbackEl.textContent = bpm < 90 ? "太慢了！" : "太快了！"; feedbackEl.className = "cpr-feedback warn"; }
         if (progressFill) progressFill.className = "cpr-bar-fill danger";
+        this._updateComboDisplay(false);
+        this._triggerScreenShake(8);
       }
 
       if (rateDisplay) {
@@ -202,12 +230,19 @@ const Interactions = {
     GameState.cpr_active = false;
     GameState.compression_interrupt_time += Math.round(this._cprTotalPause);
 
+    // 停止CPR节拍音效
+    AudioManager.stopCprMetronome();
+
     const finalQuality = GameState.compression_quality;
     const label = finalQuality >= 85 ? "优秀" : finalQuality >= 70 ? "良好" : finalQuality >= 50 ? "一般" : "下降";
     const feedbacks = [
       { text: `按压质量：${finalQuality} (${label})`, type: finalQuality >= 70 ? "positive" : "warning" },
       { text: `中断时间：${Math.round(this._cprTotalPause)}秒`, type: this._cprTotalPause < 3 ? "positive" : "negative" },
     ];
+
+    // 成就触发
+    if (finalQuality >= 85) Achievements.unlock('perfect_cpr');
+
     if (module) module.classList.remove("active");
     document.getElementById("interactionLayer")?.classList.remove("active");
     if (callback) {
@@ -221,6 +256,12 @@ const Interactions = {
   stopCPR() {
     this._active = false;
     GameState.cpr_active = false;
+
+    // 停止CPR节拍音效和环境音效
+    AudioManager.stopCprMetronome();
+    AudioManager.stopCrowdNoise();
+    AudioManager.stopTensionMusic();
+
     if (this._cprPauseCheck) clearInterval(this._cprPauseCheck);
     if (this._cprAnimFrame) cancelAnimationFrame(this._cprAnimFrame);
     document.removeEventListener("keydown", this._cprKeyHandler);
@@ -228,6 +269,11 @@ const Interactions = {
     if (module && this._cprPointerHandler) {
       module.removeEventListener("pointerdown", this._cprPointerHandler);
     }
+
+    // 清理视觉效果
+    const comboEl = document.getElementById('cprComboDisplay');
+    if (comboEl) comboEl.remove();
+
     if (module) module.classList.remove("active");
     document.getElementById("interactionLayer")?.classList.remove("active");
   },
@@ -602,6 +648,79 @@ const Interactions = {
     });
   },
 
+  // ==================== 视觉效果模块 ====================
+
+  _createComboDisplay(module) {
+    // 简化连击显示 - 放在右下角
+    const comboEl = document.createElement('div');
+    comboEl.id = 'cprComboDisplay';
+    comboEl.className = 'cpr-combo-display';
+    comboEl.innerHTML = '<span class="combo-count">0</span><span class="combo-label">连击</span>';
+    module.appendChild(comboEl);
+  },
+
+  _createDepthGauge(module) {
+    // 移除深度表 - 保留核心信息
+  },
+
+  _createECGDisplay(module) {
+    // 移除ECG - 保留核心信息
+  },
+
+  _updateComboDisplay(isGoodBeat) {
+    const comboEl = document.getElementById('cprComboDisplay');
+    if (!comboEl) return;
+
+    if (isGoodBeat) {
+      this._cprCombo++;
+      this._cprMaxCombo = Math.max(this._cprMaxCombo, this._cprCombo);
+
+      // 成就触发
+      if (this._cprCombo === 5) Achievements.unlock('combo_5');
+      if (this._cprCombo === 10) Achievements.unlock('combo_10');
+    } else {
+      this._cprCombo = 0;
+    }
+
+    const countEl = comboEl.querySelector('.combo-count');
+    const labelEl = comboEl.querySelector('.combo-label');
+    if (countEl) countEl.textContent = this._cprCombo;
+    if (labelEl) {
+      labelEl.textContent = this._cprCombo >= 10 ? '大成功' : this._cprCombo >= 5 ? '连击' : '连击';
+      labelEl.className = 'combo-label' + (this._cprCombo >= 10 ? ' mega' : this._cprCombo >= 5 ? ' great' : '');
+    }
+
+    // 连击动画
+    if (this._cprCombo > 0 && this._cprCombo % 5 === 0) {
+      this._showCPREvent(`🎯 ${this._cprCombo}连击！`);
+    }
+  },
+
+  _updateDepthGauge(quality) {
+    // 保留函数但清空实现 - 简化界面
+  },
+
+  _updateECGDisplay(bpm, isGood) {
+    // 保留函数但清空实现 - 简化界面
+  },
+
+  _triggerScreenShake(intensity = 5) {
+    const gameEl = document.getElementById('game');
+    if (!gameEl) return;
+
+    gameEl.style.transform = `translateX(${(Math.random() - 0.5) * intensity}px) translateY(${(Math.random() - 0.5) * intensity}px)`;
+    setTimeout(() => {
+      gameEl.style.transform = '';
+    }, 100);
+  },
+
+  _showScreenWarning() {
+    const warning = document.createElement('div');
+    warning.className = 'screen-warning';
+    document.body.appendChild(warning);
+    setTimeout(() => warning.remove(), 500);
+  },
+
   // ==================== 清理 ====================
   cleanup() {
     this.stopCPR();
@@ -609,5 +728,14 @@ const Interactions = {
     this.stopAssign();
     this.stopTakeover();
     this._active = false;
+
+    // 清理视觉效果
+    const comboEl = document.getElementById('cprComboDisplay');
+    if (comboEl) comboEl.remove();
+
+    // 清理音效
+    AudioManager.stopCprMetronome();
+    AudioManager.stopCrowdNoise();
+    AudioManager.stopTensionMusic();
   }
 };

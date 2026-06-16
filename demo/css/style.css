@@ -370,36 +370,50 @@ html, body {
   flex-direction: column;
   align-items: center;
   justify-content: flex-end;
-  padding: 4vh 6vw 2.5vh;
-  min-height: 10vh;
-  gap: 6px;
-  background: transparent;
-  transition: background 0.6s ease;
+  padding: 60px 80px 40px;
+  min-height: 15vh;
+  gap: 8px;
+  /* 电影风格底部渐变 */
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.95) 0%,
+    rgba(0, 0, 0, 0.7) 50%,
+    transparent 100%
+  );
 }
 /* ---------- 旁白行：白色、衬线、居中、即时显示 ---------- */
 .sb-narration {
-  font-family: var(--font-narrator);
-  font-size: 36px;
+  font-family: 'Noto Serif SC', 'Source Han Serif SC', Georgia, serif;
+  font-size: 32px;
   line-height: 1.65;
-  letter-spacing: 0.05em;
-  color: #ffffff;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.95);
   text-align: center;
   width: min(78vw, 960px);
   opacity: 0;
   animation: sbFadeIn 0.35s ease-out forwards;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
 }
 
 /* ---------- 对话行：黑体、带speaker、即时显示 ---------- */
 .sb-dialogue {
-  font-family: var(--font-ui);
+  font-family: 'Noto Serif SC', 'Source Han Serif SC', Georgia, serif;
   font-size: 30px;
-  line-height: 1.5;
-  letter-spacing: 0.04em;
-  color: #ffffff;
+  line-height: 1.55;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.95);
   text-align: center;
   width: min(78vw, 960px);
   opacity: 0;
   animation: sbFadeIn 0.35s ease-out forwards;
+  /* 字幕背景框 */
+  padding: 8px 16px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
 }
 
 /* speaker tag 行内标签 */
@@ -429,6 +443,11 @@ html, body {
   width: min(60vw, 600px);
   opacity: 0;
   animation: sbFadeIn 0.5s ease-out 0.2s forwards;
+  /* 注释背景框 */
+  padding: 4px 12px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 3px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 }
 
 /* ---------- 通用动画 ---------- */
@@ -539,34 +558,42 @@ html, body {
   display: none;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   position: absolute;
-  bottom: 30vh;
+  bottom: 25vh;
   left: 50%;
   transform: translateX(-50%);
   z-index: 19;
+  padding: 24px 32px;
+  background: rgba(0, 0, 0, 0.75);
+  border-radius: 8px;
+  border: 1px solid rgba(245, 200, 66, 0.3);
+  width: min(600px, 85vw);
 }
 #cprModule.active { display: flex; }
 
 .cpr-hint {
-  color: var(--medical);
-  font-size: 15px;
-  letter-spacing: 0.08em;
-  font-family: var(--font-ui);
+  color: var(--amber);
+  font-size: 18px;
+  letter-spacing: 0.1em;
+  font-family: var(--font-narrator);
+  text-align: center;
+  line-height: 1.5;
+  max-width: 500px;
 }
 
 .cpr-bar-container {
-  width: 420px;
-  height: 10px;
+  width: 100%;
+  height: 14px;
   background: rgba(255,255,255,0.08);
-  border-radius: 0;
+  border-radius: 7px;
   overflow: hidden;
   position: relative;
 }
 .cpr-bar-fill {
   height: 100%;
   background: var(--medical);
-  border-radius: 0;
+  border-radius: 7px;
   transition: width 0.1s;
 }
 .cpr-bar-fill.warning { background: var(--amber); }
@@ -574,27 +601,30 @@ html, body {
 
 .cpr-zone {
   position: absolute;
-  top: -4px;
-  height: 14px;
-  border: 1px dashed rgba(110, 231, 183, 0.35);
-  border-radius: 3px;
+  top: -5px;
+  height: 24px;
+  border: 2px dashed rgba(110, 231, 183, 0.5);
+  border-radius: 4px;
 }
 .cpr-beat-indicator {
-  width: 3px; height: 14px;
-  background: var(--text);
+  width: 5px; height: 24px;
+  background: var(--amber);
   position: absolute;
-  top: -4px;
-  border-radius: 2px;
+  top: -5px;
+  border-radius: 3px;
   transition: left 0.05s linear;
+  box-shadow: 0 0 8px var(--amber);
 }
 
 .cpr-stats {
   display: flex;
-  gap: 24px;
+  gap: 32px;
   font-family: var(--font-ui);
-  font-size: 13px;
+  font-size: 15px;
   color: var(--muted);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
+  width: 100%;
+  justify-content: center;
 }
 .cpr-stats span { color: var(--text); }
 .cpr-stats .cpr-rate.warning { color: var(--amber); }
@@ -602,9 +632,9 @@ html, body {
 
 .cpr-feedback {
   font-family: var(--font-ui);
-  font-size: 14px;
-  letter-spacing: 0.06em;
-  min-height: 20px;
+  font-size: 16px;
+  letter-spacing: 0.08em;
+  min-height: 24px;
   text-align: center;
 }
 .cpr-feedback.good { color: var(--medical); }
@@ -941,14 +971,17 @@ html, body {
   align-items: center;
   justify-content: center;
   background: var(--bg);
-  cursor: pointer;
+  cursor: default;
   transition: opacity 1s ease;
+  pointer-events: none;
 }
 #startScreen.fade-out { opacity: 0; pointer-events: none; }
 
 .start-bg {
   position: absolute; top: 0; left: 0;
   width: 100%; height: 100%;
+  pointer-events: none;
+  cursor: default;
   background:
     radial-gradient(ellipse 50% 35% at 50% 55%, rgba(245, 200, 66, 0.06) 0%, transparent 60%),
     radial-gradient(ellipse 30% 20% at 50% 50%, rgba(245, 200, 66, 0.04) 0%, transparent 60%),
@@ -1354,4 +1387,568 @@ html, body {
   #debugPanel.collapsed {
     width: 28px;
   }
+}
+
+/* ========== CPR 视觉效果样式 ========== */
+
+/* 连击显示 - 放大版本，更突出 */
+.cpr-combo-display {
+  position: absolute;
+  bottom: 25vh;
+  right: 8vw;
+  background: rgba(0, 0, 0, 0.85);
+  border-radius: 12px;
+  padding: 16px 24px;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  border: 2px solid rgba(245, 200, 66, 0.5);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+}
+
+.combo-count {
+  font-size: 48px;
+  font-weight: bold;
+  color: var(--amber);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.combo-label {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.9);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 500;
+}
+
+.combo-label.great {
+  color: var(--medical);
+  animation: comboPulse 0.5s ease-in-out infinite;
+}
+
+.combo-label.mega {
+  color: var(--amber);
+  animation: comboPulse 0.3s ease-in-out infinite;
+  text-shadow: 0 0 10px var(--amber);
+}
+
+@keyframes comboPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+/* 移除复杂视觉元素 - 保持简洁 */
+
+/* 屏幕震动效果 */
+.shake {
+  animation: shake 0.1s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+/* ========== 开始界面样式 ========== */
+@keyframes fadeInOut {
+  0% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+  20% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  80% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.start-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 35px;
+  align-items: center;
+  animation: fadeInUp 0.8s ease-out;
+  pointer-events: auto;
+}
+
+.start-hint {
+  font-family: var(--font-ui);
+  font-size: 18px;
+  color: var(--amber);
+  cursor: pointer;
+  padding: 14px 50px;
+  border: 2px solid var(--amber);
+  border-radius: 4px;
+  background: rgba(245, 200, 66, 0.1);
+  transition: all 0.3s ease;
+  letter-spacing: 0.12em;
+  box-shadow: 0 0 20px rgba(245, 200, 66, 0.2);
+  pointer-events: auto;
+}
+
+.start-hint:hover {
+  background: var(--amber);
+  color: #000;
+  box-shadow: 0 0 30px rgba(245, 200, 66, 0.5);
+  transform: translateY(-2px);
+}
+
+.start-settings,
+.start-achievements,
+.start-leaderboard {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  padding: 10px 28px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  transition: all 0.3s ease;
+  letter-spacing: 0.06em;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  min-width: 160px;
+  pointer-events: auto;
+}
+
+.start-settings:hover,
+.start-achievements:hover,
+.start-leaderboard:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.game-logo {
+  width: min(480px, 75vw);
+  height: auto;
+  margin-bottom: 10px;
+  filter: drop-shadow(0 4px 25px rgba(245, 200, 66, 0.35));
+  animation: fadeInUp 0.6s ease-out;
+}
+
+.start-subtitle {
+  font-family: var(--font-ui);
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.6);
+  letter-spacing: 0.35em;
+  margin-bottom: 15px;
+  animation: fadeInUp 0.7s ease-out;
+}
+
+.start-credits {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.35);
+  margin-top: 45px;
+  letter-spacing: 0.12em;
+  animation: fadeInUp 0.9s ease-out;
+}
+
+/* ========== 排行榜界面 ========== */
+.leaderboard-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.95);
+  z-index: 100;
+  display: none;
+  justify-content: center;
+  align-items: center;
+}
+
+.leaderboard-panel.active {
+  display: flex;
+}
+
+.leaderboard-content {
+  background: rgba(20, 25, 35, 0.95);
+  border: 1px solid rgba(245, 200, 66, 0.3);
+  border-radius: 8px;
+  padding: 40px;
+  width: min(600px, 90vw);
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.leaderboard-content h2 {
+  font-family: var(--font-narrator);
+  font-size: 28px;
+  color: var(--amber);
+  text-align: center;
+  margin-bottom: 30px;
+  letter-spacing: 0.1em;
+}
+
+.leaderboard-table {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+.leaderboard-header {
+  display: grid;
+  grid-template-columns: 80px 1fr 120px 120px;
+  gap: 16px;
+  padding: 12px 16px;
+  background: rgba(245, 200, 66, 0.1);
+  font-size: 12px;
+  color: var(--amber);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.leaderboard-body {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.leaderboard-row {
+  display: grid;
+  grid-template-columns: 80px 1fr 120px 120px;
+  gap: 16px;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 14px;
+  color: var(--text);
+  transition: background 0.2s ease;
+}
+
+.leaderboard-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.leaderboard-row.top-1 {
+  background: rgba(245, 200, 66, 0.15);
+  border-left: 3px solid var(--amber);
+}
+
+.leaderboard-row.top-2 {
+  background: rgba(192, 192, 192, 0.1);
+  border-left: 3px solid #c0c0c0;
+}
+
+.leaderboard-row.top-3 {
+  background: rgba(205, 127, 50, 0.1);
+  border-left: 3px solid #cd7f32;
+}
+
+.leaderboard-row .rank {
+  font-size: 18px;
+  text-align: center;
+}
+
+.leaderboard-row .name {
+  font-weight: 500;
+}
+
+.leaderboard-row .score {
+  color: var(--amber);
+  font-weight: bold;
+  text-align: right;
+}
+
+.leaderboard-row .date {
+  color: var(--muted);
+  font-size: 12px;
+  text-align: right;
+}
+
+.leaderboard-empty {
+  padding: 40px;
+  text-align: center;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.leaderboard-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.leaderboard-btn {
+  flex: 1;
+  padding: 12px;
+  background: rgba(245, 200, 66, 0.2);
+  border: 1px solid var(--amber);
+  border-radius: 4px;
+  color: var(--amber);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  letter-spacing: 0.08em;
+}
+
+.leaderboard-btn:hover {
+  background: var(--amber);
+  color: #000;
+}
+
+.leaderboard-btn:first-child {
+  background: rgba(216, 74, 58, 0.2);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.leaderboard-btn:first-child:hover {
+  background: var(--danger);
+  color: white;
+}
+
+/* ========== 设置面板 ========== */
+.settings-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 100;
+  display: none;
+  justify-content: center;
+  align-items: center;
+}
+
+.settings-panel.active {
+  display: flex;
+}
+
+.settings-content {
+  background: rgba(20, 25, 35, 0.95);
+  border: 1px solid rgba(245, 200, 66, 0.3);
+  border-radius: 8px;
+  padding: 40px;
+  width: min(400px, 85vw);
+}
+
+.settings-content h2 {
+  font-family: var(--font-narrator);
+  font-size: 24px;
+  color: var(--amber);
+  text-align: center;
+  margin-bottom: 30px;
+  letter-spacing: 0.1em;
+}
+
+.settings-group {
+  margin-bottom: 24px;
+}
+
+.settings-group label {
+  display: block;
+  font-size: 14px;
+  color: var(--text);
+  margin-bottom: 8px;
+  letter-spacing: 0.05em;
+}
+
+.settings-group input[type="range"] {
+  width: 100%;
+  height: 6px;
+  -webkit-appearance: none;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  outline: none;
+}
+
+.settings-group input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  background: var(--amber);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(245, 200, 66, 0.5);
+}
+
+.settings-group span {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: right;
+  margin-top: 4px;
+}
+
+.settings-close {
+  width: 100%;
+  padding: 12px;
+  background: rgba(245, 200, 66, 0.2);
+  border: 1px solid var(--amber);
+  border-radius: 4px;
+  color: var(--amber);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  letter-spacing: 0.08em;
+}
+
+.settings-close:hover {
+  background: var(--amber);
+  color: #000;
+}
+
+/* ========== 成就通知 ========== */
+.achievement-notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: rgba(20, 25, 35, 0.95);
+  border: 1px solid var(--amber);
+  border-radius: 8px;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  z-index: 200;
+  opacity: 0;
+  transform: translateX(100%);
+  transition: all 0.5s ease;
+  box-shadow: 0 4px 20px rgba(245, 200, 66, 0.3);
+}
+
+.achievement-notification.show {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.achievement-icon {
+  font-size: 32px;
+}
+
+.achievement-title {
+  font-size: 12px;
+  color: var(--amber);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.achievement-name {
+  font-size: 18px;
+  color: var(--text);
+  font-weight: bold;
+  margin: 4px 0;
+}
+
+.achievement-desc {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ========== 成就统计界面 ========== */
+.achievement-layer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 100;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.achievement-panel {
+  background: rgba(20, 25, 35, 0.95);
+  border: 1px solid rgba(245, 200, 66, 0.3);
+  border-radius: 8px;
+  padding: 40px;
+  width: min(500px, 85vw);
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.achievement-panel h2 {
+  font-family: var(--font-narrator);
+  font-size: 24px;
+  color: var(--amber);
+  text-align: center;
+  margin-bottom: 30px;
+  letter-spacing: 0.1em;
+}
+
+.achievement-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 30px;
+}
+
+.achievement-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.achievement-item.unlocked {
+  border: 1px solid rgba(245, 200, 66, 0.3);
+}
+
+.achievement-item.locked {
+  opacity: 0.5;
+}
+
+.achievement-item .achievement-icon {
+  font-size: 24px;
+}
+
+.achievement-item .achievement-name {
+  font-size: 16px;
+}
+
+.achievement-item .achievement-desc {
+  font-size: 13px;
+}
+
+.achievement-close {
+  width: 100%;
+  padding: 12px;
+  background: rgba(245, 200, 66, 0.2);
+  border: 1px solid var(--amber);
+  border-radius: 4px;
+  color: var(--amber);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  letter-spacing: 0.08em;
+}
+
+.achievement-close:hover {
+  background: var(--amber);
+  color: #000;
+}
+
+/* ========== 屏幕中断警告效果 ========== */
+.screen-warning {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(ellipse at center, rgba(216, 74, 58, 0.3), transparent);
+  z-index: 50;
+  pointer-events: none;
+  opacity: 0;
+  animation: warningFlash 0.5s ease-out;
+}
+
+@keyframes warningFlash {
+  0% { opacity: 0.8; }
+  100% { opacity: 0; }
 }

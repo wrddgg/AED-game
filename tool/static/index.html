@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 生图工具</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+:root {
+  --bg: #0f0f11; --surface: #1a1a1f; --surface2: #232329;
+  --border: #2a2a32; --text: #e4e4e7; --text2: #93939e;
+  --accent: #6366f1; --accent2: #818cf8; --green: #22c55e;
+  --red: #ef4444; --radius: 10px;
+}
+body { font-family: -apple-system, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+/* Top bar */
+.topbar { display:flex; align-items:center; gap:12px; padding:10px 16px; background:var(--surface); border-bottom:1px solid var(--border); flex-shrink:0; }
+.topbar .logo { font-size:18px; font-weight:700; color:var(--accent2); }
+.topbar input { background:var(--surface2); border:1px solid var(--border); color:var(--text); padding:6px 10px; border-radius:6px; font-size:13px; width:120px; }
+.topbar select { background:var(--surface2); border:1px solid var(--border); color:var(--text); padding:6px 8px; border-radius:6px; font-size:13px; }
+
+/* Main layout */
+.main { display:flex; flex:1; overflow:hidden; }
+
+/* Left panel */
+.panel { width:340px; min-width:340px; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; padding:16px; gap:14px; overflow-y:auto; }
+.panel label { font-size:12px; color:var(--text2); text-transform:uppercase; letter-spacing:.5px; }
+.panel textarea { width:100%; height:120px; background:var(--surface2); border:1px solid var(--border); color:var(--text); border-radius:var(--radius); padding:10px; font-size:13px; resize:vertical; font-family:inherit; }
+.panel textarea:focus { outline:none; border-color:var(--accent); }
+
+/* Ref images */
+.ref-zone { border:2px dashed var(--border); border-radius:var(--radius); padding:16px; text-align:center; color:var(--text2); font-size:12px; min-height:80px; transition:.2s; cursor:pointer; position:relative; }
+.ref-zone.dragover { border-color:var(--accent); background:rgba(99,102,241,.08); }
+.ref-zone input { position:absolute; inset:0; opacity:0; cursor:pointer; }
+.ref-thumbs { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+.ref-thumb { width:52px; height:52px; border-radius:6px; overflow:hidden; position:relative; border:1px solid var(--border); flex-shrink:0; }
+.ref-thumb img { width:100%; height:100%; object-fit:cover; }
+.ref-thumb .remove { position:absolute; top:-4px; right:-4px; width:16px; height:16px; background:var(--red); color:#fff; border:none; border-radius:50%; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+.ref-count { font-size:11px; color:var(--text2); margin-top:4px; }
+
+/* Prompt list */
+.prompt-list { display:flex; flex-direction:column; gap:8px; }
+.prompt-item { background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius); padding:10px; position:relative; }
+.prompt-item textarea { width:100%; height:60px; background:transparent; border:none; color:var(--text); font-size:13px; resize:none; font-family:inherit; }
+.prompt-item textarea:focus { outline:none; }
+.prompt-item .remove-prompt { position:absolute; top:6px; right:6px; background:none; border:none; color:var(--text2); cursor:pointer; font-size:16px; }
+.add-prompt { background:var(--surface2); border:1px dashed var(--border); color:var(--text2); padding:8px; border-radius:var(--radius); cursor:pointer; text-align:center; font-size:13px; transition:.2s; }
+.add-prompt:hover { border-color:var(--accent); color:var(--accent2); }
+
+/* Generate button */
+.gen-btn { background:var(--accent); color:#fff; border:none; padding:12px; border-radius:var(--radius); font-size:14px; font-weight:600; cursor:pointer; transition:.2s; }
+.gen-btn:hover { background:var(--accent2); }
+.gen-btn:disabled { opacity:.5; cursor:not-allowed; }
+
+/* Output area */
+.output { flex:1; overflow-y:auto; padding:16px; }
+.output-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px,1fr)); gap:12px; }
+.card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+.card img { width:100%; aspect-ratio:16/9; object-fit:cover; display:block; background:var(--surface2); }
+.card .info { padding:8px 10px; }
+.card .prompt-text { font-size:11px; color:var(--text2); line-height:1.4; max-height:44px; overflow:hidden; }
+.card .meta { display:flex; justify-content:space-between; align-items:center; margin-top:6px; }
+.card .status { font-size:11px; }
+.card .status.pending { color:var(--text2); }
+.card .status.running { color:var(--accent2); }
+.card .status.done { color:var(--green); }
+.card .status.error { color:var(--red); }
+.card .progress-bar { height:3px; background:var(--surface2); border-radius:2px; margin-top:6px; overflow:hidden; }
+.card .progress-fill { height:100%; background:var(--accent); border-radius:2px; transition:width .3s; width:0; }
+.card .actions { display:flex; gap:6px; padding:0 10px 8px; }
+.card .actions button { background:var(--surface2); border:1px solid var(--border); color:var(--text2); padding:4px 10px; border-radius:5px; font-size:11px; cursor:pointer; }
+.card .actions button:hover { border-color:var(--accent); color:var(--text); }
+.card .error-detail { padding:0 10px 8px; font-size:11px; color:var(--red); word-break:break-all; }
+
+/* Size presets */
+.size-presets { display:flex; gap:4px; flex-wrap:wrap; }
+.size-presets button { background:var(--surface2); border:1px solid var(--border); color:var(--text2); padding:4px 8px; border-radius:5px; font-size:11px; cursor:pointer; }
+.size-presets button.active { border-color:var(--accent); color:var(--accent2); background:rgba(99,102,241,.1); }
+
+/* Spinner */
+@keyframes spin { to { transform:rotate(360deg); } }
+.spinner { display:inline-block; width:14px; height:14px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; vertical-align:middle; margin-right:4px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">AI ImageGen</div>
+  <input id="apiKey" type="password" placeholder="API 密钥" value="">
+  <input id="apiBase" placeholder="API 地址" value="https://www.hfsyapi.cn" style="width:200px;">
+  <select id="mode">
+    <option value="t2i">文生图</option>
+    <option value="i2i">图生图</option>
+  </select>
+  <div style="flex:1"></div>
+  <input id="savePath" placeholder="保存路径（如 C:\images）" style="width:280px; font-size:12px;" title="生成的图片将自动保存到此路径">
+  <label style="font-size:11px; display:flex; align-items:center; gap:4px; cursor:pointer;">
+    <input type="checkbox" id="autoSave" checked> 自动保存
+  </label>
+</div>
+
+<div class="main">
+  <div class="panel">
+    <!-- Ref images (i2i mode) -->
+    <div id="refSection">
+      <label>参考图（最多6张）</label>
+      <div class="ref-zone" id="refZone">
+        从文件夹拖入图片或点击选择
+        <input type="file" id="refInput" multiple accept="image/*">
+      </div>
+      <div class="ref-thumbs" id="refThumbs"></div>
+      <div class="ref-count" id="refCount"></div>
+    </div>
+
+    <!-- Size -->
+    <div>
+      <label>尺寸</label>
+      <div class="size-presets" id="sizePresets">
+        <button data-size="1280x720" class="active">16:9</button>
+        <button data-size="1024x1024">1:1</button>
+        <button data-size="768x1024">3:4</button>
+        <button data-size="1024x768">4:3</button>
+        <button data-size="720x1280">9:16</button>
+      </div>
+    </div>
+
+    <!-- Prompts -->
+    <div>
+      <label>提示词</label>
+      <div class="prompt-list" id="promptList">
+        <div class="prompt-item">
+          <textarea placeholder="输入图片描述..."></textarea>
+          <button class="remove-prompt" onclick="removePrompt(this)">&times;</button>
+        </div>
+      </div>
+      <div class="add-prompt" onclick="addPrompt()">+ 添加提示词</div>
+    </div>
+
+    <button class="gen-btn" id="genBtn" onclick="startGeneration()">生成</button>
+  </div>
+
+  <div class="output">
+    <div class="output-grid" id="outputGrid"></div>
+  </div>
+</div>
+
+<script>
+const API = '/api';
+let refImages = []; // {b64, name}
+let selectedSize = '1280x720';
+
+// --- Load saved settings ---
+async function loadSettings() {
+  try {
+    const resp = await fetch(API + '/settings');
+    const s = await resp.json();
+    if (s.api_key) document.getElementById('apiKey').value = s.api_key;
+    if (s.api_base) document.getElementById('apiBase').value = s.api_base;
+    if (s.save_path) document.getElementById('savePath').value = s.save_path;
+    if (s.auto_save !== undefined) document.getElementById('autoSave').checked = s.auto_save;
+    if (s.size) {
+      selectedSize = s.size;
+      document.querySelectorAll('.size-presets button').forEach(b => {
+        b.classList.toggle('active', b.dataset.size === s.size);
+      });
+    }
+    if (s.mode) {
+      document.getElementById('mode').value = s.mode;
+      document.getElementById('refSection').style.display = s.mode === 'i2i' ? '' : 'none';
+    }
+    // Restore prompts
+    if (s.prompts && s.prompts.length) {
+      const list = document.getElementById('promptList');
+      list.innerHTML = '';
+      s.prompts.forEach(text => addPrompt(text));
+    }
+    // Restore reference images
+    if (s.ref_images && s.ref_images.length) {
+      refImages = s.ref_images;
+      renderRefThumbs();
+    }
+  } catch(e) {}
+}
+
+// Auto-save settings on any input change
+function saveSettings() {
+  const s = {
+    api_key: document.getElementById('apiKey').value,
+    api_base: document.getElementById('apiBase').value,
+    save_path: document.getElementById('savePath').value,
+    auto_save: document.getElementById('autoSave').checked,
+    size: selectedSize,
+    mode: document.getElementById('mode').value,
+    prompts: getPrompts(),
+    ref_images: refImages.map(r => ({b64: r.b64, name: r.name})),
+  };
+  fetch(API + '/settings', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(s)
+  }).catch(()=>{});
+}
+
+// Debounce settings save
+let settingsTimer = null;
+function debounceSave() {
+  clearTimeout(settingsTimer);
+  settingsTimer = setTimeout(saveSettings, 500);
+}
+
+document.getElementById('apiKey').addEventListener('input', debounceSave);
+document.getElementById('apiBase').addEventListener('input', debounceSave);
+document.getElementById('savePath').addEventListener('input', debounceSave);
+document.getElementById('autoSave').addEventListener('change', debounceSave);
+document.getElementById('mode').addEventListener('change', e => {
+  document.getElementById('refSection').style.display = e.target.value === 'i2i' ? '' : 'none';
+  debounceSave();
+});
+
+// --- Size presets ---
+document.querySelectorAll('.size-presets button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.size-presets button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedSize = btn.dataset.size;
+    debounceSave();
+  });
+});
+
+// --- Reference images drag & drop ---
+const refZone = document.getElementById('refZone');
+const refInput = document.getElementById('refInput');
+
+refZone.addEventListener('dragover', e => { e.preventDefault(); refZone.classList.add('dragover'); });
+refZone.addEventListener('dragleave', () => refZone.classList.remove('dragover'));
+refZone.addEventListener('drop', e => {
+  e.preventDefault();
+  refZone.classList.remove('dragover');
+  handleFiles(e.dataTransfer.files);
+});
+refInput.addEventListener('change', e => handleFiles(e.target.files));
+
+async function handleFiles(files) {
+  for (const file of files) {
+    if (refImages.length >= 6) break;
+    if (!file.type.startsWith('image/')) continue;
+    const b64 = await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.readAsDataURL(file);
+    });
+    refImages.push({ b64, name: file.name });
+    renderRefThumbs();
+    debounceSave();
+  }
+}
+
+function renderRefThumbs() {
+  const cont = document.getElementById('refThumbs');
+  cont.innerHTML = '';
+  refImages.forEach((ref, i) => {
+    const div = document.createElement('div');
+    div.className = 'ref-thumb';
+    div.innerHTML = `<img src="data:image/png;base64,${ref.b64}"><button class="remove" onclick="removeRef(${i})">&times;</button>`;
+    cont.appendChild(div);
+  });
+  document.getElementById('refCount').textContent = refImages.length ? `${refImages.length}/6 张` : '';
+}
+
+function removeRef(i) {
+  refImages.splice(i, 1);
+  renderRefThumbs();
+  debounceSave();
+}
+
+// --- Prompts ---
+function addPrompt(text='') {
+  const list = document.getElementById('promptList');
+  const div = document.createElement('div');
+  div.className = 'prompt-item';
+  div.innerHTML = `<textarea placeholder="输入图片描述...">${text}</textarea><button class="remove-prompt" onclick="removePrompt(this)">&times;</button>`;
+  list.appendChild(div);
+  div.querySelector('textarea').focus();
+  div.querySelector('textarea').addEventListener('input', debounceSave);
+}
+
+function removePrompt(btn) {
+  const list = document.getElementById('promptList');
+  if (list.children.length > 1) {
+    btn.closest('.prompt-item').remove();
+    debounceSave();
+  }
+}
+
+function getPrompts() {
+  return [...document.querySelectorAll('.prompt-item textarea')]
+    .map(t => t.value.trim())
+    .filter(t => t.length > 0);
+}
+
+// --- Generation ---
+async function startGeneration() {
+  const prompts = getPrompts();
+  if (!prompts.length) return alert('请至少添加一个提示词');
+  const apiKey = document.getElementById('apiKey').value.trim();
+  if (!apiKey) return alert('请填写 API Key');
+
+  // Create cards
+  const grid = document.getElementById('outputGrid');
+  prompts.forEach((prompt, idx) => {
+    const cardId = Date.now() + '_' + idx;
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.id = 'card-' + cardId;
+    card.innerHTML = `
+      <img id="img-${cardId}">
+      <div class="info"><div class="prompt-text">${escHtml(prompt)}</div>
+        <div class="meta"><span class="status pending" id="status-${cardId}">等待中</span></div>
+        <div class="progress-bar"><div class="progress-fill" id="prog-${cardId}"></div></div>
+      </div>
+      <div class="error-detail" id="err-${cardId}"></div>
+      <div class="actions" id="acts-${cardId}">
+        <button onclick="deleteCard('${cardId}')">删除</button>
+      </div>`;
+    grid.prepend(card);
+
+    // Fire request immediately, don't await
+    generateOne(cardId, prompt, apiKey);
+  });
+}
+
+async function generateOne(cardId, prompt, apiKey) {
+  try {
+    document.getElementById('status-'+cardId).innerHTML = '<span class="spinner"></span>生成中...';
+    document.getElementById('status-'+cardId).className = 'status running';
+    document.getElementById('prog-'+cardId).style.width = '30%';
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 180000); // 3 min
+    let resp;
+    try {
+      resp = await fetch(API + '/generate', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        signal: controller.signal,
+        body: JSON.stringify({
+          api_key: apiKey,
+          api_base: document.getElementById('apiBase').value,
+          prompt: prompt,
+          size: selectedSize,
+          n: 1,
+          reference_images: document.getElementById('mode').value === 'i2i' ? refImages.map(r => r.b64) : []
+        })
+      });
+    } catch(fetchErr) {
+      clearTimeout(timeoutId);
+      if (fetchErr.name === 'AbortError') throw new Error('请求超时（超过3分钟），请稍后重试');
+      throw new Error('网络连接失败: ' + fetchErr.message);
+    }
+    clearTimeout(timeoutId);
+
+    document.getElementById('prog-'+cardId).style.width = '80%';
+    let data;
+    try { data = await resp.json(); } catch(e) { throw new Error('服务器返回无效数据（状态码 ' + resp.status + '）'); }
+
+    if (data.error) throw new Error('API错误: ' + data.error + (data.detail ? ' - ' + JSON.stringify(data.detail).slice(0,200) : ''));
+
+    if (data.images && data.images.length) {
+      const b64 = data.images[0];
+      generatedImages[cardId] = b64;
+      document.getElementById('img-'+cardId).src = 'data:image/png;base64,' + b64;
+      document.getElementById('status-'+cardId).textContent = '完成';
+      document.getElementById('status-'+cardId).className = 'status done';
+      document.getElementById('prog-'+cardId).style.width = '100%';
+      // Auto-save
+      const autoSave = document.getElementById('autoSave').checked;
+      const saveDir = document.getElementById('savePath').value.trim();
+      if (autoSave && saveDir) {
+        const filename = 'img_' + Date.now() + '_' + cardId + '.png';
+        document.getElementById('status-'+cardId).innerHTML = '<span class="spinner"></span>保存中...';
+        fetch(API + '/save', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ b64, filename, save_dir: saveDir })
+        }).then(r => r.json()).then(r => {
+          document.getElementById('status-'+cardId).textContent = r.ok ? '完成（已保存）' : '完成（保存失败）';
+          document.getElementById('status-'+cardId).className = 'status done';
+        }).catch(() => {
+          document.getElementById('status-'+cardId).textContent = '完成';
+        });
+      }
+      // Update actions
+      document.getElementById('acts-'+cardId).innerHTML =
+        `<button onclick="deleteCard('${cardId}')">删除</button>
+         <button onclick="saveOne('${cardId}','${escAttr(prompt.slice(0,30))}')">另存为...</button>`;
+    } else {
+      throw new Error('未返回图片');
+    }
+  } catch(e) {
+    document.getElementById('status-'+cardId).textContent = '失败';
+    document.getElementById('status-'+cardId).className = 'status error';
+    document.getElementById('err-'+cardId).textContent = e.message;
+    document.getElementById('prog-'+cardId).style.width = '100%';
+    document.getElementById('prog-'+cardId).style.background = 'var(--red)';
+    document.getElementById('acts-'+cardId).innerHTML =
+      `<button onclick="deleteCard('${cardId}')">删除</button>
+       <button onclick="retryCard('${cardId}','${escAttr(prompt.slice(0,50))}','${escAttr(prompt)}')">重试</button>`;
+  }
+}
+
+function deleteCard(cardId) {
+  const card = document.getElementById('card-' + cardId);
+  if (card) card.remove();
+}
+
+function retryCard(cardId, name, prompt) {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  if (!apiKey) return alert('请填写 API Key');
+  // Reset card visuals
+  document.getElementById('img-'+cardId).src = '';
+  document.getElementById('err-'+cardId).textContent = '';
+  document.getElementById('acts-'+cardId).innerHTML =
+    `<button onclick="deleteCard('${cardId}')">删除</button>`;
+  generateOne(cardId, prompt, apiKey);
+}
+
+function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escAttr(s) { return s.replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
+
+// Store generated b64 data per card index
+const generatedImages = {};
+
+async function saveOne(cardId, name) {
+  const b64 = generatedImages[cardId];
+  if (!b64) return;
+  const saveDir = document.getElementById('savePath').value.trim();
+  if (!saveDir) return alert('请先设置保存路径');
+  const filename = (name || 'image').replace(/[^a-zA-Z0-9一-鿿]/g, '_') + '_' + Date.now() + '.png';
+  try {
+    const resp = await fetch(API + '/save', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ b64, filename, save_dir: saveDir })
+    });
+    const r = await resp.json();
+    if (r.ok) alert('已保存到: ' + r.path);
+    else alert('保存失败: ' + (r.error || '未知错误'));
+  } catch(e) { alert('保存失败: ' + e.message); }
+}
+
+// Init
+loadSettings();
+
+// --- Keyboard shortcut ---
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault();
+    startGeneration();
+  }
+});
+</script>
+</body>
+</html>

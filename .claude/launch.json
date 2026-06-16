@@ -1,0 +1,15 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "aed-game-demo",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-c",
+        "import os, mimetypes; mimetypes.add_type('application/javascript', '.js'); mimetypes.add_type('application/javascript', '.mjs'); from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler as H; port=int(os.environ.get('PORT', '4174')); ThreadingHTTPServer(('127.0.0.1', port), H).serve_forever()"
+      ],
+      "port": 4174,
+      "autoPort": true
+    }
+  ]
+}

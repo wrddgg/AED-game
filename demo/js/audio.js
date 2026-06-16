@@ -166,5 +166,427 @@ const AudioManager = {
 
   isReady() {
     return true;
+  },
+
+  // CPR节拍音效（120bpm，嘟嘟声）
+  _cprContext: null,
+  _cprInterval: null,
+  _cprBeepDuration: 0.08, // 80ms的嘟嘟声
+
+  startCprMetronome(bpm = 120, volume = 0.6) {
+    this.stopCprMetronome();
+
+    if (!this._cprContext) {
+      this._cprContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+
+    const context = this._cprContext;
+    const intervalMs = (60 / bpm) * 1000;
+
+    // 生成嘟嘟声
+    const playBeep = () => {
+      const oscillator = context.createOscillator();
+      const gainNode = context.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(context.destination);
+
+      oscillator.frequency.value = 880; // A5音
+      oscillator.type = 'sine'; // 正弦波，清晰的嘟嘟声
+
+      gainNode.gain.setValueAtTime(0, context.currentTime);
+      gainNode.gain.linearRampToValueAtTime(volume, context.currentTime + 0.01);
+      gainNode.gain.linearRampToValueAtTime(0, context.currentTime + this._cprBeepDuration);
+
+      oscillator.start(context.currentTime);
+      oscillator.stop(context.currentTime + this._cprBeepDuration);
+    };
+
+    // 立即播放第一声
+    playBeep();
+
+    // 定时播放后续节拍
+    this._cprInterval = setInterval(playBeep, intervalMs);
+  },
+
+  stopCprMetronome() {
+    if (this._cprInterval) {
+      clearInterval(this._cprInterval);
+      this._cprInterval = null;
+    }
+  },
+
+  isCprMetronomeRunning() {
+    return this._cprInterval !== null;
+  },
+
+  // ==================== 环境音效生成器 ====================
+
+  // 周围人声嘈杂音效
+  _crowdContext: null,
+  _crowdNodes: [],
+  _crowdActive: false,
+
+  startCrowdNoise(duration = 30, volume = 0.3) {
+    if (this._crowdActive) return;
+
+    if (!this._crowdContext) {
+      this._crowdContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+
+    const ctx = this._crowdContext;
+    this._crowdActive = true;
+
+    // 生成3-5个声音层模拟不同人的说话
+    const voiceCount = 3 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < voiceCount; i++) {
+      this._createCrowdVoiceLayer(ctx, volume, i);
+    }
+
+    // 设置自动停止
+    if (duration > 0) {
+      setTimeout(() => this.stopCrowdNoise(), duration * 1000);
+    }
+  },
+
+  _createCrowdVoiceLayer(ctx, baseVolume, index) {
+    // 白噪音源
+    const bufferSize = 2 * ctx.sampleRate;
+    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const output = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      output[i] = Math.random() * 2 - 1;
+    }
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = noiseBuffer;
+    noise.loop = true;
+
+    // 带通滤波器（人声频率范围）
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 300 + index * 150 + Math.random() * 100; // 不同音色
+    filter.Q.value = 0.5;
+
+    // 增益节点（波动音量）
+    const gain = ctx.createGain();
+    gain.gain.value = 0;
+
+    // 低频振荡器调制音量（模拟说话节奏）
+    const lfo = ctx.createOscillator();
+    const lfoGain = ctx.createGain();
+    lfo.frequency.value = 0.3 + index * 0.1 + Math.random() * 0.2; // 不同节奏
+    lfo.type = 'sine';
+    lfoGain.gain.value = baseVolume * 0.3;
+
+    lfo.connect(lfoGain);
+    lfoGain.connect(gain.gain);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+
+    noise.start();
+    lfo.start();
+
+    this._crowdNodes.push(noise, filter, gain, lfo, lfoGain);
+  },
+
+  stopCrowdNoise() {
+    this._crowdActive = false;
+    this._crowdNodes.forEach(node => {
+      try {
+        if (node.stop) node.stop();
+        node.disconnect();
+      } catch (e) {}
+    });
+    this._crowdNodes = [];
+  },
+
+  // 紧张音乐生成器
+  _tensionContext: null,
+  _tensionNodes: [],
+  _tensionActive: false,
+  _tensionInterval: null,
+
+  startTensionMusic(intensity = 0.5, volume = 0.4) {
+    if (this._tensionActive) return;
+
+    if (!this._tensionContext) {
+      this._tensionContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+
+    const ctx = this._tensionContext;
+    this._tensionActive = true;
+    this._tensionNodes = [];
+
+    // 基础紧张低音
+    this._createTensionDrone(ctx, volume * 0.3);
+
+    // 不和谐和弦
+    this._createTensionChord(ctx, volume * 0.2);
+
+    // 节奏脉冲
+    this._tensionInterval = setInterval(() => {
+      if (!this._tensionActive) return;
+      this._playTensionPulse(ctx, volume * intensity);
+    }, 800);
+  },
+
+  _createTensionDrone(ctx, volume) {
+    const osc1 = ctx.createOscillator();
+    const osc2 = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const filter = ctx.createBiquadFilter();
+
+    osc1.type = 'sawtooth';
+    osc1.frequency.value = 55; // 低音A
+    osc2.type = 'sine';
+    osc2.frequency.value = 55.5; // 微调失谐（beat频率）
+
+    filter.type = 'lowpass';
+    filter.frequency.value = 200;
+
+    gain.gain.value = volume;
+
+    osc1.connect(filter);
+    osc2.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc1.start();
+    osc2.start();
+
+    this._tensionNodes.push(osc1, osc2, gain, filter);
+  },
+
+  _createTensionChord(ctx, volume) {
+    // 不和谐和弦（增四度/减五度）
+    const frequencies = [146.83, 174.61, 220, 261.63]; // D4, F4, A4, C5（不和谐）
+    const gains = [];
+
+    frequencies.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+
+      gain.gain.value = volume * 0.15 * (1 - i * 0.2);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+
+      this._tensionNodes.push(osc, gain);
+      gains.push(gain);
+    });
+  },
+
+  _playTensionPulse(ctx, volume) {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.value = 80 + Math.random() * 20;
+
+    gain.gain.setValueAtTime(volume, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.1);
+  },
+
+  stopTensionMusic() {
+    this._tensionActive = false;
+
+    if (this._tensionInterval) {
+      clearInterval(this._tensionInterval);
+      this._tensionInterval = null;
+    }
+
+    this._tensionNodes.forEach(node => {
+      try {
+        if (node.stop) node.stop();
+        node.disconnect();
+      } catch (e) {}
+    });
+    this._tensionNodes = [];
+  },
+
+  isTensionMusicRunning() {
+    return this._tensionActive;
+  },
+
+  // ==================== 警告音效 ====================
+
+  // 按压中断警告音
+  playInterruptionWarning() {
+    if (!this._cprContext) {
+      this._cprContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    const ctx = this._cprContext;
+
+    // 3个快速警告嘟嘟声
+    for (let i = 0; i < 3; i++) {
+      setTimeout(() => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = 'square';
+        osc.frequency.value = 440;
+
+        gain.gain.setValueAtTime(0, ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.02);
+        gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.15);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start();
+        osc.stop(ctx.currentTime + 0.15);
+      }, i * 200);
+    }
+  },
+
+  // ==================== 背景环境音 ====================
+
+  _bgContext: null,
+  _bgNodes: [],
+  _bgActive: false,
+
+  startBackgroundAmbience(volume = 0.2) {
+    if (this._bgActive) return;
+
+    if (!this._bgContext) {
+      this._bgContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+
+    const ctx = this._bgContext;
+    this._bgActive = true;
+    this._bgNodes = [];
+
+    // 雨声（白噪音+低通滤波）
+    this._createRainSound(ctx, volume * 0.6);
+
+    // 远处城市噪音（粉红噪音）
+    this._createCityNoise(ctx, volume * 0.4);
+  },
+
+  _createRainSound(ctx, volume) {
+    const bufferSize = 2 * ctx.sampleRate;
+    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const output = noiseBuffer.getChannelData(0);
+
+    for (let i = 0; i < bufferSize; i++) {
+      output[i] = Math.random() * 2 - 1;
+    }
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = noiseBuffer;
+    noise.loop = true;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 800;
+
+    const gain = ctx.createGain();
+    gain.gain.value = volume;
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+
+    noise.start();
+
+    this._bgNodes.push(noise, filter, gain);
+  },
+
+  _createCityNoise(ctx, volume) {
+    const bufferSize = 2 * ctx.sampleRate;
+    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const output = noiseBuffer.getChannelData(0);
+
+    for (let i = 0; i < bufferSize; i++) {
+      output[i] = (Math.random() * 2 - 1) * 0.5;
+    }
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = noiseBuffer;
+    noise.loop = true;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 200;
+    filter.Q.value = 0.5;
+
+    const gain = ctx.createGain();
+    gain.gain.value = volume;
+
+    // LFO波动
+    const lfo = ctx.createOscillator();
+    const lfoGain = ctx.createGain();
+    lfo.frequency.value = 0.1;
+    lfoGain.gain.value = volume * 0.3;
+
+    lfo.connect(lfoGain);
+    lfoGain.connect(gain.gain);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+
+    noise.start();
+    lfo.start();
+
+    this._bgNodes.push(noise, filter, gain, lfo, lfoGain);
+  },
+
+  stopBackgroundAmbience() {
+    this._bgActive = false;
+    this._bgNodes.forEach(node => {
+      try {
+        if (node.stop) node.stop();
+        node.disconnect();
+      } catch (e) {}
+    });
+    this._bgNodes = [];
+  },
+
+  isBackgroundAmbienceRunning() {
+    return this._bgActive;
+  },
+
+  // ==================== 成就音效 ====================
+
+  playAchievementSound() {
+    if (!this._bgContext) {
+      this._bgContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    const ctx = this._bgContext;
+
+    // 成就解锁音效（C大调和弦）
+    const frequencies = [523.25, 659.25, 783.99]; // C5, E5, G5
+    frequencies.forEach((freq, i) => {
+      setTimeout(() => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+
+        gain.gain.setValueAtTime(0, ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.05);
+        gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.5);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start();
+        osc.stop(ctx.currentTime + 0.5);
+      }, i * 100);
+    });
   }
 };

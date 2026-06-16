@@ -124,9 +124,9 @@
   <section id="pauseMenu">
     <div class="pause-menu-title">暂停</div>
     <button class="pause-menu-btn" id="pauseResume">继续</button>
-    <button class="pause-menu-btn" id="pauseRestart">重新开始</button>
+    <button class="pause-menu-btn" id="pauseRestart">返回主页</button>
     <button class="pause-menu-btn" id="pauseToggleHUD">显示/隐藏 HUD</button>
-    <button class="pause-menu-btn" id="pauseReview">跳到章节复盘</button>
+    <button class="pause-menu-btn" id="pauseSave">保存进度</button>
   </section>
 
   <!-- 开始画面 -->
@@ -134,8 +134,65 @@
     <div class="start-bg"></div>
     <div id="startRain"></div>
     <div class="start-content">
-      <div class="start-title">生命守护者</div>
-      <div class="start-hint">开始</div>
+      <img src="assets/images/game_logo.png" alt="圆心之外" class="game-logo">
+      <div class="start-subtitle">互动版</div>
+      <div class="start-buttons">
+        <div class="start-hint">开始游戏</div>
+        <div class="start-settings" id="startSettings">⚙ 设置</div>
+        <div class="start-achievements" id="startAchievements">🏆 成就</div>
+        <div class="start-leaderboard" id="startLeaderboard">📊 排行榜</div>
+      </div>
+      <div class="start-credits">AED急救模拟 · 电影式互动叙事</div>
+    </div>
+  </section>
+
+  <!-- 音量控制界面 -->
+  <section id="settingsPanel" class="settings-panel">
+    <div class="settings-content">
+      <h2>音频设置</h2>
+      <div class="settings-group">
+        <label>主音量</label>
+        <input type="range" id="masterVolume" min="0" max="100" value="80">
+        <span id="masterVolumeValue">80%</span>
+      </div>
+      <div class="settings-group">
+        <label>背景音乐</label>
+        <input type="range" id="bgmVolume" min="0" max="100" value="60">
+        <span id="bgmVolumeValue">60%</span>
+      </div>
+      <div class="settings-group">
+        <label>环境音效</label>
+        <input type="range" id="ambientVolume" min="0" max="100" value="50">
+        <span id="ambientVolumeValue">50%</span>
+      </div>
+      <div class="settings-group">
+        <label>游戏音效</label>
+        <input type="range" id="sfxVolume" min="0" max="100" value="80">
+        <span id="sfxVolumeValue">80%</span>
+      </div>
+      <button class="settings-close" id="settingsClose">返回</button>
+    </div>
+  </section>
+
+  <!-- 排行榜界面 -->
+  <section id="leaderboardPanel" class="leaderboard-panel">
+    <div class="leaderboard-content">
+      <h2>🏆 排行榜</h2>
+      <div class="leaderboard-table">
+        <div class="leaderboard-header">
+          <span>排名</span>
+          <span>玩家</span>
+          <span>分数</span>
+          <span>日期</span>
+        </div>
+        <div class="leaderboard-body" id="leaderboardBody">
+          <!-- 排行榜数据将动态填充 -->
+        </div>
+      </div>
+      <div class="leaderboard-actions">
+        <button class="leaderboard-btn" id="leaderboardClear">清空记录</button>
+        <button class="leaderboard-btn" id="leaderboardClose">返回</button>
+      </div>
     </div>
   </section>
 
@@ -183,8 +240,149 @@
 <script src="js/state.js?v=20260614-2"></script>
 <script src="js/scenes.js?v=20260614-2"></script>
 <script src="js/audio.js?v=20260614-2"></script>
+<script src="js/achievements.js?v=20260614-2"></script>
+<script src="js/leaderboard.js?v=20260614-2"></script>
 <script src="js/interactions.js?v=20260614-2"></script>
 <script src="js/game.js?v=20260614-2"></script>
+
+<script>
+// 初始化所有系统
+document.addEventListener('DOMContentLoaded', () => {
+  // 初始化成就和排行榜系统
+  Achievements.init();
+  Leaderboard.init();
+
+  // 音量控制界面
+  const settingsPanel = document.getElementById('settingsPanel');
+  const startSettings = document.getElementById('startSettings');
+  const settingsClose = document.getElementById('settingsClose');
+  const startAchievements = document.getElementById('startAchievements');
+  const startLeaderboard = document.getElementById('startLeaderboard');
+  const leaderboardPanel = document.getElementById('leaderboardPanel');
+  const leaderboardClose = document.getElementById('leaderboardClose');
+  const leaderboardClear = document.getElementById('leaderboardClear');
+
+  startSettings?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+
+    // 延迟检查并显示设置面板
+    setTimeout(() => {
+      const panel = document.getElementById('settingsPanel');
+      if (panel && !panel.classList.contains('active')) {
+        panel.classList.add('active');
+      }
+    }, 100);
+  });
+
+  settingsClose?.addEventListener('click', () => {
+    settingsPanel?.classList.remove('active');
+  });
+
+  startAchievements?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    Achievements.showStats();
+  });
+
+  startLeaderboard?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    updateLeaderboardUI();
+    leaderboardPanel?.classList.add('active');
+  });
+
+  leaderboardClose?.addEventListener('click', () => {
+    leaderboardPanel?.classList.remove('active');
+  });
+
+  leaderboardClear?.addEventListener('click', () => {
+    if (confirm('确定要清空所有记录吗？')) {
+      Leaderboard.clearAll();
+      updateLeaderboardUI();
+    }
+  });
+
+  // 开始游戏按钮
+  const startHint = document.querySelector('.start-hint');
+  if (startHint) {
+    startHint.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      console.log('Start button clicked');
+
+      // 隐藏首页
+      const startScreen = document.getElementById('startScreen');
+      if (startScreen) startScreen.style.display = 'none';
+
+      // 检查是否有保存的进度
+      const savedProgress = localStorage.getItem('aed_progress');
+      if (savedProgress) {
+        const progress = JSON.parse(savedProgress);
+        if (confirm(`发现保存的进度（场景：${progress.currentScene}），是否继续？`)) {
+          // 恢复进度
+          Object.assign(GameState, progress.gameState);
+          Game.goToScene(progress.currentScene);
+        } else {
+          // 清除保存的进度，重新开始
+          localStorage.removeItem('aed_progress');
+          Game.restartGame();
+        }
+      } else {
+        // 没有保存的进度，重新开始
+        GameState.init();
+        Game._updateHUD();
+        Game.goToScene('prologue_title');
+      }
+
+      // 启动背景音效
+      setTimeout(() => {
+        AudioManager.startBackgroundAmbience(0.25);
+      }, 500);
+    });
+  }
+
+  // 音量滑块
+  const sliders = {
+    master: document.getElementById('masterVolume'),
+    bgm: document.getElementById('bgmVolume'),
+    ambient: document.getElementById('ambientVolume'),
+    sfx: document.getElementById('sfxVolume')
+  };
+
+  Object.entries(sliders).forEach(([type, slider]) => {
+    if (!slider) return;
+    const valueEl = document.getElementById(`${type}VolumeValue`);
+
+    slider.addEventListener('input', (e) => {
+      const value = parseInt(e.target.value) / 100;
+      AudioManager.setVolume(type, value);
+      if (valueEl) valueEl.textContent = `${Math.round(value * 100)}%`;
+    });
+  });
+
+  // 开始画面背景点击（不处理，只通过开始游戏按钮触发）
+});
+
+function updateLeaderboardUI() {
+  const body = document.getElementById('leaderboardBody');
+  if (!body) return;
+
+  const scores = Leaderboard.getTopScores();
+
+  if (scores.length === 0) {
+    body.innerHTML = '<div class="leaderboard-empty">暂无记录</div>';
+    return;
+  }
+
+  body.innerHTML = scores.map((entry, index) => `
+    <div class="leaderboard-row ${index < 3 ? 'top-' + (index + 1) : ''}">
+      <span class="rank">${index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : index + 1}</span>
+      <span class="name">${entry.name}</span>
+      <span class="score">${entry.score}</span>
+      <span class="date">${entry.date}</span>
+    </div>
+  `).join('');
+}
+</script>
 
 </body>
 </html>

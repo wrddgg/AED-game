@@ -412,6 +412,15 @@ const Game = {
     // ===== 复盘 =====
     if (scene.mode === "review") {
       await this._delay(400);
+
+      // 计算分数并添加到排行榜
+      const finalScore = this._calculateFinalScore();
+      const rank = Leaderboard.addScore('玩家', finalScore, {
+        quality: GameState.compression_quality,
+        combo: Interactions._cprMaxCombo || 0,
+        time: GameState.delay || 0,
+      });
+
       Interactions.showReview();
     }
 
@@ -1063,30 +1072,31 @@ const Game = {
 
     // 鼠标点击：仅用于交互模块，不跳过字幕
     document.getElementById("game").addEventListener("click", (e) => {
+      // 如果点击的是startScreen中的按钮，不处理
+      if (e.target.closest("#startScreen")) {
+        e.stopPropagation();
+        return;
+      }
       if (e.target.closest("#choiceLayer")) return;
       if (e.target.closest("#pauseMenu")) return;
       if (e.target.closest("#debugPanel")) return;
     });
 
-    // 开始画面点击
-    document.getElementById("startScreen")?.addEventListener("click", () => {
-      this._startGame();
-    });
+    // 开始画面点击（在index.html中处理）
 
     // 暂停菜单按钮
     document.getElementById("pauseResume")?.addEventListener("click", () => this._hidePauseMenu());
     document.getElementById("pauseRestart")?.addEventListener("click", () => {
       this._hidePauseMenu();
-      this.restartGame();
+      this._returnToMainMenu();
     });
     document.getElementById("pauseToggleHUD")?.addEventListener("click", () => {
       this.toggleHUD();
       this._hidePauseMenu();
     });
-    document.getElementById("pauseReview")?.addEventListener("click", () => {
-      this._hidePauseMenu();
-      this._hideAllModules();
-      Interactions.showReview();
+    document.getElementById("pauseSave")?.addEventListener("click", () => {
+      this._saveProgress();
+      this._showPauseMessage("进度已保存");
     });
   },
 
@@ -1385,6 +1395,112 @@ window.showStateFeedback = function(text, type) {
 
 window.restartGame = function() {
   Game.restartGame();
+};
+
+// ========== 分数计算 ==========
+Game._calculateFinalScore = function() {
+  let score = 1000; // 基础分
+
+  // 按压质量扣分/加分
+  const quality = GameState.compression_quality;
+  if (quality >= 85) score += 500;      // 优秀
+  else if (quality >= 70) score += 200; // 良好
+  else if (quality >= 50) score -= 100; // 一般
+  else score -= 300;                    // 下降
+
+  // 连击加分
+  const maxCombo = Interactions._cprMaxCombo || 0;
+  score += maxCombo * 50;
+
+  // 中断时间扣分
+  const interruptTime = GameState.compression_interrupt_time || 0;
+  score -= interruptTime * 20;
+
+  // 延误扣分
+  const delay = GameState.delay || 0;
+  score -= delay * 10;
+
+  // 家属信任加分
+  const familyTrust = GameState.family_trust || 0;
+  score += familyTrust * 100;
+
+  // 证人激活加分
+  const witnesses = GameState.active_witnesses || 0;
+  score += witnesses * 150;
+
+  // 确保分数不为负
+  return Math.max(0, Math.round(score));
+};
+
+// ========== 进度保存系统 ==========
+Game._saveProgress = function() {
+  const progress = {
+    currentScene: this.currentSceneId,
+    gameState: { ...GameState },
+    timestamp: Date.now(),
+  };
+  localStorage.setItem('aed_progress', JSON.stringify(progress));
+  console.log('进度已保存:', this.currentSceneId);
+};
+
+Game._loadProgress = function() {
+  const saved = localStorage.getItem('aed_progress');
+  if (saved) {
+    const progress = JSON.parse(saved);
+    return progress;
+  }
+  return null;
+};
+
+Game._cleanup = function() {
+  // 停止所有交互
+  Interactions.cleanup();
+
+  // 清理场景
+  this._clearBar();
+  this._hideAllModules();
+
+  // 重置状态
+  this.isTyping = false;
+  this.currentSceneId = null;
+};
+
+Game._returnToMainMenu = function() {
+  // 保存进度
+  this._saveProgress();
+
+  // 清理游戏状态
+  this._cleanup();
+
+  // 显示首页
+  const startScreen = document.getElementById("startScreen");
+  if (startScreen) {
+    startScreen.style.display = "flex";
+  }
+
+  // 停止所有音效
+  AudioManager.stopAll();
+  AudioManager.stopBackgroundAmbience();
+};
+
+Game._showPauseMessage = function(message) {
+  const msgEl = document.createElement('div');
+  msgEl.style.cssText = `
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(110, 231, 183, 0.9);
+    color: #000;
+    padding: 12px 24px;
+    border-radius: 4px;
+    font-size: 14px;
+    z-index: 1000;
+    animation: fadeInOut 2s ease forwards;
+  `;
+  msgEl.textContent = message;
+  document.body.appendChild(msgEl);
+  setTimeout(() => msgEl.remove(), 2000);
 };
 
 // ========== 启动游戏 ==========
