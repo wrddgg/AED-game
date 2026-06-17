@@ -132,6 +132,7 @@ const AudioManager = {
       this._ambient.currentTime = 0;
       this._ambient = null;
     }
+    this.stopNarration();
     this._activeSfx.forEach(audio => {
       try {
         audio.pause();
@@ -557,6 +558,101 @@ const AudioManager = {
 
   isBackgroundAmbienceRunning() {
     return this._bgActive;
+  },
+
+  // ==================== 旁白音频（完整生命周期管理） ====================
+  _narrationAudio: null,
+  _narrationCallId: 0,       // 调用序号，阻止旧回调污染
+  _narrationTimeout: null,   // fallback计时器句柄
+  _narrationResolve: null,   // 当前pending的Promise resolve
+
+  playNarration(audioPath) {
+    // 彻底停止并销毁上一段旁白
+    this.stopNarration();
+    const callId = ++this._narrationCallId;
+
+    return new Promise((resolve) => {
+      this._narrationResolve = resolve;
+      const audio = new Audio(audioPath);
+      audio.preload = "auto";
+      this._applyVolume(audio, "voice", 1.0);
+      this._narrationAudio = audio;
+
+      let resolved = false;
+      const done = (result) => {
+        // 校验调用序号，阻止旧回调生效
+        if (resolved || callId !== this._narrationCallId) return;
+        resolved = true;
+        this._narrationResolve = null;
+        this._clearNarrationTimeout();
+        // 移除事件监听器，防止内存泄漏
+        audio.removeEventListener("canplaythrough", onCanPlay);
+        audio.removeEventListener("loadedmetadata", onMeta);
+        audio.removeEventListener("error", onError);
+        resolve(result);
+      };
+
+      const onCanPlay = () => {
+        audio.play().catch(() => {});
+        done(audio);
+      };
+      const onMeta = () => {
+        if (!resolved) {
+          audio.play().catch(() => {});
+          done(audio);
+        }
+      };
+      const onError = () => {
+        console.warn("[Audio] 旁白音频加载失败:", audioPath);
+        this._narrationAudio = null;
+        done(null);
+      };
+
+      audio.addEventListener("canplaythrough", onCanPlay);
+      audio.addEventListener("loadedmetadata", onMeta);
+      audio.addEventListener("error", onError);
+
+      // 安全阀：2秒后强制触发
+      this._narrationTimeout = setTimeout(() => {
+        if (callId !== this._narrationCallId) return;
+        if (!resolved) {
+          audio.play().catch(() => {});
+          done(audio);
+        }
+      }, 2000);
+
+      audio.load();
+    });
+  },
+
+  /** 彻底停止并销毁旁白音频：移除src、终止加载、使旧Promise失效 */
+  stopNarration() {
+    this._clearNarrationTimeout();
+    // 使旧Promise的resolve失效
+    if (this._narrationResolve) {
+      this._narrationResolve = null;
+    }
+    if (this._narrationAudio) {
+      const audio = this._narrationAudio;
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+        // 移除src并重新load，彻底终止任何进行中的加载/解码
+        audio.removeAttribute("src");
+        audio.load();
+      } catch (e) {}
+      this._narrationAudio = null;
+    }
+    // 递增序号，使所有旧回调失效
+    this._narrationCallId++;
+  },
+
+  /** 清理fallback超时计时器 */
+  _clearNarrationTimeout() {
+    if (this._narrationTimeout) {
+      clearTimeout(this._narrationTimeout);
+      this._narrationTimeout = null;
+    }
   },
 
   // ==================== 成就音效 ====================
