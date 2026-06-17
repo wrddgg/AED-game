@@ -684,11 +684,11 @@ const SCENES = {
     },
     speed: { media: 1.0, text: 1.0, hold: 1.0 },
     lines: [
-      { text: "兄弟！来帮一把！我数到三，我一撤，你立刻压下去，别停！", hl: ["帮一把", "别停"] }
+      { text: "兄弟！来帮一把！我数到三，我一撤，你立刻压下去，别停！", hl: ["帮一把", "别停"] },
+      { text: "肩膀压上来，手臂打直，垂直往下压！", hl: ["手臂打直", "垂直往下压"] },
+      { text: "别停，跟着我的数！" }
     ],
     nextLines: [
-      { mode: "dialogue", speaker: "王远", text: "肩膀压上来，手臂打直，垂直往下压！", hl: ["手臂打直", "垂直往下压"] },
-      { mode: "dialogue", speaker: "王远", text: "别停，跟着我的数！" },
       { mode: "dialogue", speaker: "林小雨", text: "别抢，跟他的数。手臂别弯", hl: ["别抢", "手臂别弯"],
         voice: "../audio/圆圈之外-崩溃/把手交出去-林小雨.wav", note: "终于往前半步，盯着年轻路人的肩膀" },
       { mode: "narration", text: "救人不只是自己蹲下去。", hl: ["把别人拉过来", "一起接住"] },
@@ -740,8 +740,8 @@ const SCENES = {
         voice: "../audio/圆圈之外-崩溃/孤独的硬撑-林小雨1.wav" },
       { mode: "narration", text: "王远听见了，却还是撑着这一轮，继续往下压", hl: ["继续往下压"],
         voice: "../audio/圆圈之外-崩溃/孤独的硬撑-旁白2.wav" },
-      { mode: "narration", text: "隔了一段时间——", hl: [""] },
-      { mode: "dialogue", speaker: "王远", text: "我数到三，我一撤，你立刻压下去，别停！", hl: ["数到三", "别停"] },
+      { mode: "dialogue", speaker: "王远", text: "我数到三，我一撤，你立刻压下去，别停！", hl: ["数到三", "别停"],
+        voice: "../audio/圆圈之外-崩溃/把手交出去-王远.wav", voiceSpan: 3 },
       { mode: "dialogue", speaker: "王远", text: "肩膀压上来，手臂打直，垂直往下压！", hl: ["垂直往下压"] },
       { mode: "dialogue", speaker: "王远", text: "别停，跟着我的数！" },
       { mode: "dialogue", speaker: "林小雨", text: "别抢，跟他的数。手臂别弯", hl: ["别抢", "手臂别弯"],

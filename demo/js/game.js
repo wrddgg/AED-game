@@ -423,6 +423,21 @@ const Game = {
 
       let narrationIdx = 0; // 追踪当前是第几个narration行
       let _prevHadVoice = false; // 上一行有 nl.voice → 需清理音频避免重叠
+      let _voiceSpanRemaining = 0;    // voiceSpan 剩余行数（音频仍需播放）
+      let _voiceSpanHoldN = 0;        // narration voiceSpan 每行hold
+      let _voiceSpanHoldD = 0;        // dialogue voiceSpan 每行hold
+
+      // ★ 重置 voiceSpan 状态的辅助函数（先清理旧音频，再重置计数器）
+      const _resetVoiceSpan = () => {
+        if (_voiceSpanRemaining > 0 && _prevHadVoice) {
+          // voiceSpan结束，确认停止音频
+          AudioManager.stopNarration();
+        }
+        _voiceSpanRemaining = 0;
+        _voiceSpanHoldN = 0;
+        _voiceSpanHoldD = 0;
+      };
+
       for (let i = 0; i < scene.nextLines.length; i++) {
         if (this.currentSceneId !== scene.id) { this.isTyping = false; return; }
 
@@ -432,6 +447,7 @@ const Game = {
         const nextNl = scene.nextLines[i + 1];
         if (nl.overlap && nextNl && nextNl.mode === "dialogue") {
           // ★ 多人物重叠：播放第一行音频（若存在），同时渲染两行字幕
+          _resetVoiceSpan();
           if (nl.voice) {
             await AudioManager.playNarration(nl.voice);
             _prevHadVoice = true;
@@ -441,18 +457,24 @@ const Game = {
           continue;
         }
 
-        // ★ 防止毗邻 voice 行音频重叠：上一行音频确认停止后再开始本行延迟
+        // ★ 防止毗邻 voice 行音频重叠：voiceSpan内不清理，让音频继续播
         if (_prevHadVoice) {
-          AudioManager.stopNarration();
-          await this._delay(60);  // 短暂等待音频引擎完全释放
+          if (_voiceSpanRemaining <= 0) {
+            // 不在voiceSpan内 → 清理旧音频
+            AudioManager.stopNarration();
+            await this._delay(60);  // 短暂等待音频引擎完全释放
+          }
           _prevHadVoice = false;
         }
 
         if (nl.mode === "narration") {
           await this._delay(nl.delay || 400);
-          // 按行独立音频：nl.voice 优先级高于 nextVoice 均分
           let hold;
-          if (nl.voice) {
+          // ★ voiceSpan 继续：使用预计算的hold，不播放新音频
+          if (_voiceSpanRemaining > 0) {
+            hold = _voiceSpanHoldN;
+            _voiceSpanRemaining--;
+          } else if (nl.voice) {
             const nlAudio = await AudioManager.playNarration(nl.voice);
             if (nlAudio && nlAudio.duration > 0) {
               const span = nl.voiceSpan || 1;
@@ -460,10 +482,17 @@ const Game = {
               const interLineDelay = (nl.delay || 400); // narration 默认 400ms
               const compensatedMs = Math.max(0, nlAudio.duration * 1000 - (span - 1) * interLineDelay);
               hold = Math.round(compensatedMs / span);
+              if (span > 1) {
+                _voiceSpanRemaining = span - 1;
+                _voiceSpanHoldN = hold;
+              }
             }
             _prevHadVoice = true;
           } else if (nextLineHolds.length > 0 && nextLineHolds[narrationIdx] !== undefined) {
             hold = nextLineHolds[narrationIdx];
+            _voiceSpanRemaining = 0; // nextVoice 均分模式：不在独立voiceSpan内
+          } else {
+            _voiceSpanRemaining = 0; // 无voice无nextVoice → 结束任何残留voiceSpan
           }
           narrationIdx++;
           await this._barLine(nl, "narration", null, null, hold);
@@ -471,20 +500,35 @@ const Game = {
           await this._delay(nl.delay || 500);
           // 对话行也支持按行独立音频 + 多行共享(voiceSpan)
           if (nl.voice) {
-            const nlAudio = await AudioManager.playNarration(nl.voice);
-            if (nlAudio && nlAudio.duration > 0) {
-              const span = nl.voiceSpan || 1;
-              // ★ voiceSpan 延迟补偿
-              const interLineDelay = (nl.delay || 500);
-              const compensatedMs = Math.max(0, nlAudio.duration * 1000 - (span - 1) * interLineDelay);
-              await this._barLine(nl, "dialogue", nl.speaker, nl.style,
-                Math.round(compensatedMs / span));
+            let hold;
+            // ★ voiceSpan 继续：使用预计算的hold，不播放新音频
+            if (_voiceSpanRemaining > 0) {
+              hold = _voiceSpanHoldD;
+              _voiceSpanRemaining--;
             } else {
-              await this._barLine(nl, "dialogue", nl.speaker, nl.style);
+              const nlAudio = await AudioManager.playNarration(nl.voice);
+              if (nlAudio && nlAudio.duration > 0) {
+                const span = nl.voiceSpan || 1;
+                // ★ voiceSpan 延迟补偿
+                const interLineDelay = (nl.delay || 500);
+                const compensatedMs = Math.max(0, nlAudio.duration * 1000 - (span - 1) * interLineDelay);
+                hold = Math.round(compensatedMs / span);
+                if (span > 1) {
+                  _voiceSpanRemaining = span - 1;
+                  _voiceSpanHoldD = hold;
+                }
+              }
             }
+            await this._barLine(nl, "dialogue", nl.speaker, nl.style, hold);
             _prevHadVoice = true;
           } else {
-            await this._barLine(nl, "dialogue", nl.speaker, nl.style);
+            // 无voice的dialogue行：如果在voiceSpan内，继续使用span timing
+            let hold;
+            if (_voiceSpanRemaining > 0) {
+              hold = _voiceSpanHoldD;
+              _voiceSpanRemaining--;
+            }
+            await this._barLine(nl, "dialogue", nl.speaker, nl.style, hold);
           }
           if (nl.note) {
             await this._delay(200);
