@@ -25,6 +25,8 @@ const Game = {
     this.isTyping = false;
     this.hudVisible = false;
     this.paused = false;
+    this._sharedVoiceActive = false;
+    this._sharedNextHolds = null;
 
     this._bindGlobalInputs();
     this._showStartScreen();
@@ -79,6 +81,9 @@ const Game = {
 
     if (this.typingTimer) clearTimeout(this.typingTimer);
     this._clearSceneTimers();
+    AudioManager.stopNarration(); // 切换场景时停止上一场景旁白
+    this._sharedVoiceActive = false;  // 清理共享音频状态
+    this._sharedNextHolds = null;
     this.currentSceneId = sceneId;
     this.isTyping = false;
 
@@ -328,22 +333,68 @@ const Game = {
     // ===== 渲染主行 =====
     if (scene.lines && scene.lines.length > 0) {
       if (scene.mode === "narration") {
-        for (const line of scene.lines) {
+        // 播放旁白音频，基于字数自适应计算每行字幕显示时间
+        let lineHolds = [];
+        // ★ 共享音频检测：同一文件用于 lines + nextLines，避免重复播放
+        const _sharedVoice = scene.narrationVoice && scene.nextVoice
+          && scene.narrationVoice === scene.nextVoice;
+        this._sharedVoiceActive = false;
+
+        if (scene.narrationVoice) {
+          const narrationAudio = await AudioManager.playNarration(scene.narrationVoice);
+          if (narrationAudio && narrationAudio.duration > 0 && scene.lines.length > 0) {
+            if (_sharedVoice && scene.nextLines) {
+              // 共享音频：计算全部 narration 行（lines + nextLines中narration）的联合时长
+              const narrationNls = scene.nextLines.filter(nl => nl.mode === "narration");
+              // 扣除 nextLines 行间延迟，确保字幕在音频结束前完成
+              const nlsDelay = narrationNls.reduce((s, nl) => s + (nl.delay || 400), 0);
+              const availableMs = Math.max(0, narrationAudio.duration * 1000 - nlsDelay);
+              const combined = this._calcCharBasedHolds(
+                [...scene.lines, ...narrationNls], availableMs
+              );
+              lineHolds = combined.slice(0, scene.lines.length);
+              this._sharedNextHolds = combined.slice(scene.lines.length);
+              this._sharedVoiceActive = true;
+            } else {
+              lineHolds = this._calcCharBasedHolds(scene.lines, narrationAudio.duration * 1000);
+            }
+          }
+        }
+        for (let i = 0; i < scene.lines.length; i++) {
           if (this.currentSceneId !== scene.id) { this.isTyping = false; return; }
-          await this._barLine(line, "narration");
+          const hold = (lineHolds.length > 0 && lineHolds[i]) ? lineHolds[i] : undefined;
+          await this._barLine(scene.lines[i], "narration", null, null, hold);
         }
       } else if (scene.mode === "dialogue") {
+        // 对话模式：支持 dialogueVoice 音频
+        let dialHolds = [];
+        if (scene.dialogueVoice) {
+          const dialAudio = await AudioManager.playNarration(scene.dialogueVoice);
+          if (dialAudio && dialAudio.duration > 0 && scene.lines.length > 0) {
+            dialHolds = this._calcCharBasedHolds(scene.lines, dialAudio.duration * 1000);
+          }
+        }
         for (let i = 0; i < scene.lines.length; i++) {
           if (this.currentSceneId !== scene.id) { this.isTyping = false; return; }
           const line = scene.lines[i];
           const speaker = (i === 0 && scene.speaker) ? scene.speaker : line.speaker;
           const style = line.style || null;
-          await this._barLine(line, "dialogue", speaker, style);
+          const hold = (dialHolds.length > 0 && dialHolds[i]) ? dialHolds[i] : undefined;
+          await this._barLine(line, "dialogue", speaker, style, hold);
         }
       } else if (scene.mode === "choice") {
-        for (const line of scene.lines) {
+        // 选择模式：支持 narrationVoice 音频
+        let choiceHolds = [];
+        if (scene.narrationVoice) {
+          const choiceAudio = await AudioManager.playNarration(scene.narrationVoice);
+          if (choiceAudio && choiceAudio.duration > 0 && scene.lines.length > 0) {
+            choiceHolds = this._calcCharBasedHolds(scene.lines, choiceAudio.duration * 1000);
+          }
+        }
+        for (let i = 0; i < scene.lines.length; i++) {
           if (this.currentSceneId !== scene.id) { this.isTyping = false; return; }
-          await this._barLine(line, "narration");
+          const hold = (choiceHolds.length > 0 && choiceHolds[i]) ? choiceHolds[i] : undefined;
+          await this._barLine(scene.lines[i], "narration", null, null, hold);
         }
       }
       // review模式不需要字幕
@@ -351,6 +402,42 @@ const Game = {
 
     // ===== 渲染后续行 =====
     if (scene.nextLines) {
+      // 如果有nextVoice音频，基于字数自适应计算narration型nextLines的显示时长
+      let nextLineHolds = [];
+      // ★ 共享音频：复用 narration 阶段已播放的同一音频，避免重复播
+      if (this._sharedVoiceActive && this._sharedNextHolds) {
+        nextLineHolds = this._sharedNextHolds;
+        this._sharedVoiceActive = false;
+        this._sharedNextHolds = null;
+      } else if (scene.nextVoice) {
+        const nextAudio = await AudioManager.playNarration(scene.nextVoice);
+        if (nextAudio && nextAudio.duration > 0) {
+          const narrationLines = scene.nextLines.filter(nl => nl.mode === "narration");
+          // 计算所有行间延迟总和
+          const totalDelay = scene.nextLines.reduce(
+            (sum, nl) => sum + (nl.delay || (nl.mode === "narration" ? 400 : 500)), 0
+          );
+          nextLineHolds = this._calcCharBasedHolds(narrationLines, nextAudio.duration * 1000, totalDelay);
+        }
+      }
+
+      let narrationIdx = 0; // 追踪当前是第几个narration行
+      let _prevHadVoice = false; // 上一行有 nl.voice → 需清理音频避免重叠
+      let _voiceSpanRemaining = 0;    // voiceSpan 剩余行数（音频仍需播放）
+      let _voiceSpanHoldN = 0;        // narration voiceSpan 每行hold
+      let _voiceSpanHoldD = 0;        // dialogue voiceSpan 每行hold
+
+      // ★ 重置 voiceSpan 状态的辅助函数（先清理旧音频，再重置计数器）
+      const _resetVoiceSpan = () => {
+        if (_voiceSpanRemaining > 0 && _prevHadVoice) {
+          // voiceSpan结束，确认停止音频
+          AudioManager.stopNarration();
+        }
+        _voiceSpanRemaining = 0;
+        _voiceSpanHoldN = 0;
+        _voiceSpanHoldD = 0;
+      };
+
       for (let i = 0; i < scene.nextLines.length; i++) {
         if (this.currentSceneId !== scene.id) { this.isTyping = false; return; }
 
@@ -359,18 +446,90 @@ const Game = {
         // 检查是否与下一行标记为重叠对话（多人同时说话）
         const nextNl = scene.nextLines[i + 1];
         if (nl.overlap && nextNl && nextNl.mode === "dialogue") {
-          // 多人物重叠：同时渲染两行
+          // ★ 多人物重叠：播放第一行音频（若存在），同时渲染两行字幕
+          _resetVoiceSpan();
+          if (nl.voice) {
+            await AudioManager.playNarration(nl.voice);
+            _prevHadVoice = true;
+          }
           await this._barMultiSpeaker(nl, nextNl);
           i++; // 跳过后一行
           continue;
         }
 
+        // ★ 防止毗邻 voice 行音频重叠：voiceSpan内不清理，让音频继续播
+        if (_prevHadVoice) {
+          if (_voiceSpanRemaining <= 0) {
+            // 不在voiceSpan内 → 清理旧音频
+            AudioManager.stopNarration();
+            await this._delay(60);  // 短暂等待音频引擎完全释放
+          }
+          _prevHadVoice = false;
+        }
+
         if (nl.mode === "narration") {
           await this._delay(nl.delay || 400);
-          await this._barLine(nl, "narration");
+          let hold;
+          // ★ voiceSpan 继续：使用预计算的hold，不播放新音频
+          if (_voiceSpanRemaining > 0) {
+            hold = _voiceSpanHoldN;
+            _voiceSpanRemaining--;
+          } else if (nl.voice) {
+            const nlAudio = await AudioManager.playNarration(nl.voice);
+            if (nlAudio && nlAudio.duration > 0) {
+              const span = nl.voiceSpan || 1;
+              // ★ voiceSpan 延迟补偿：扣除后续行间延迟，确保音频长度覆盖全部字幕
+              const interLineDelay = (nl.delay || 400); // narration 默认 400ms
+              const compensatedMs = Math.max(0, nlAudio.duration * 1000 - (span - 1) * interLineDelay);
+              hold = Math.round(compensatedMs / span);
+              if (span > 1) {
+                _voiceSpanRemaining = span - 1;
+                _voiceSpanHoldN = hold;
+              }
+            }
+            _prevHadVoice = true;
+          } else if (nextLineHolds.length > 0 && nextLineHolds[narrationIdx] !== undefined) {
+            hold = nextLineHolds[narrationIdx];
+            _voiceSpanRemaining = 0; // nextVoice 均分模式：不在独立voiceSpan内
+          } else {
+            _voiceSpanRemaining = 0; // 无voice无nextVoice → 结束任何残留voiceSpan
+          }
+          narrationIdx++;
+          await this._barLine(nl, "narration", null, null, hold);
         } else if (nl.mode === "dialogue") {
           await this._delay(nl.delay || 500);
-          await this._barLine(nl, "dialogue", nl.speaker, nl.style);
+          // 对话行也支持按行独立音频 + 多行共享(voiceSpan)
+          if (nl.voice) {
+            let hold;
+            // ★ voiceSpan 继续：使用预计算的hold，不播放新音频
+            if (_voiceSpanRemaining > 0) {
+              hold = _voiceSpanHoldD;
+              _voiceSpanRemaining--;
+            } else {
+              const nlAudio = await AudioManager.playNarration(nl.voice);
+              if (nlAudio && nlAudio.duration > 0) {
+                const span = nl.voiceSpan || 1;
+                // ★ voiceSpan 延迟补偿
+                const interLineDelay = (nl.delay || 500);
+                const compensatedMs = Math.max(0, nlAudio.duration * 1000 - (span - 1) * interLineDelay);
+                hold = Math.round(compensatedMs / span);
+                if (span > 1) {
+                  _voiceSpanRemaining = span - 1;
+                  _voiceSpanHoldD = hold;
+                }
+              }
+            }
+            await this._barLine(nl, "dialogue", nl.speaker, nl.style, hold);
+            _prevHadVoice = true;
+          } else {
+            // 无voice的dialogue行：如果在voiceSpan内，继续使用span timing
+            let hold;
+            if (_voiceSpanRemaining > 0) {
+              hold = _voiceSpanHoldD;
+              _voiceSpanRemaining--;
+            }
+            await this._barLine(nl, "dialogue", nl.speaker, nl.style, hold);
+          }
           if (nl.note) {
             await this._delay(200);
             await this._barNote(nl.note);
@@ -570,7 +729,7 @@ const Game = {
 
   // ==================== 底部字幕带：narration/dialogue ====================
   // 当前行结束回调（点击跳过时触发）
-  _barLine(line, type, speaker, style) {
+  _barLine(line, type, speaker, style, customHold) {
     return new Promise(resolve => {
       if (this.typingTimer) clearTimeout(this.typingTimer);
       this._lineResolve = null;
@@ -607,7 +766,8 @@ const Game = {
       el.appendChild(document.createTextNode(text));
       bar.appendChild(el);
 
-      const hold = line.hold || (isNarration ? 2800 : 2200);
+      // 优先使用自定义hold（音频时长控制），其次使用line.hold，最后使用默认值
+      const hold = customHold || line.hold || (isNarration ? 2800 : 2200);
       this.typingTimer = setTimeout(() => {
         this._lineResolve = null;
         resolve();
@@ -1113,6 +1273,8 @@ const Game = {
     document.getElementById("pauseMenu").classList.remove("active");
     this.paused = false;
     this.currentSceneId = null;
+    this._sharedVoiceActive = false;
+    this._sharedNextHolds = null;
     Interactions.cleanup();
     GameState.init();
     this._updateHUD();
@@ -1180,6 +1342,44 @@ const Game = {
 
       video.play().catch(() => cleanup());
     });
+  },
+
+  // ==================== 字数自适应字幕时长算法 ====================
+  /**
+   * 根据每条字幕的字数，按比例分配音频时长
+   * @param {Array}  lines         - 字幕行数组（每行需有 text 字段）
+   * @param {number} totalAudioMs  - 音频总时长（毫秒）
+   * @param {number} interDelayMs  - 行间延迟总和（毫秒）
+   * @returns {Array<number>}      - 每行对应的hold时长（毫秒）
+   */
+  _calcCharBasedHolds(lines, totalAudioMs, interDelayMs = 0) {
+    if (!lines || lines.length === 0) return [];
+
+    const totalChars = lines.reduce((sum, line) => sum + (line.text ? line.text.length : 0), 0);
+    if (totalChars === 0) {
+      // 无文本则均分
+      return lines.map(() => Math.round(totalAudioMs / lines.length));
+    }
+
+    const availableMs = Math.max(0, totalAudioMs - interDelayMs);
+    const MIN_HOLD = 600;   // 最短显示时间（毫秒），防止短句一闪而过
+    const MAX_HOLD = 8000;  // 最长显示时间（毫秒），防止长句滞留过久
+
+    // 按字数比例初步分配
+    const rawHolds = lines.map(line => {
+      const chars = line.text ? line.text.length : 0;
+      return Math.round((chars / totalChars) * availableMs);
+    });
+
+    // Clamp到合理范围
+    const clamped = rawHolds.map(h => Math.max(MIN_HOLD, Math.min(MAX_HOLD, h)));
+    const clampedTotal = clamped.reduce((a, b) => a + b, 0);
+
+    // 二次归一化，确保总时长精确匹配可用时长
+    if (clampedTotal > 0) {
+      return clamped.map(h => Math.round((h / clampedTotal) * availableMs));
+    }
+    return rawHolds;
   },
 
   // ==================== 工具 ====================
