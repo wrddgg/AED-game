@@ -13,8 +13,8 @@
   --danger: #d84a3a;
   --medical: #6ee7b7;
   --blue: #7dd3fc;
-  --font-ui: "Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei", sans-serif;
-  --font-narrator: "Noto Serif SC", "Source Han Serif SC", "SimSun", serif;
+  --font-ui: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", "Source Han Sans SC", sans-serif;
+  --font-narrator: "STKaiti", "STSong", "FangSong", "SimSun", "Noto Serif SC", "Source Han Serif SC", serif;
   --transition-speed: 0.5s;
 }
 
@@ -32,6 +32,17 @@ html, body {
   user-select: none;
   -webkit-user-select: none;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-synthesis: none;
+}
+
+/* 全局：所有文字统一用衬线字体作为电影字幕的基调 */
+#game, #stage, #subtitleBar, #intertitleLayer, #choiceLayer, #hud, #pauseMenu, #debugPanel, #startScreen {
+  font-family: var(--font-narrator);
+}
+/* UI元素（按钮/输入框/标签）走无衬线 */
+button, input, select, label, .fp-*, .dbg-*, .assign-card, .cpr-*, .aed-* {
+  font-family: var(--font-ui);
 }
 
 /* ========== Main Game Container ========== */
@@ -383,7 +394,7 @@ html, body {
 }
 /* ---------- 旁白行：白色、衬线、居中、即时显示 ---------- */
 .sb-narration {
-  font-family: 'Noto Serif SC', 'Source Han Serif SC', Georgia, serif;
+  font-family: var(--font-narrator);
   font-size: 32px;
   line-height: 1.65;
   letter-spacing: 0.06em;
@@ -400,7 +411,7 @@ html, body {
 
 /* ---------- 对话行：黑体、带speaker、即时显示 ---------- */
 .sb-dialogue {
-  font-family: 'Noto Serif SC', 'Source Han Serif SC', Georgia, serif;
+  font-family: var(--font-narrator);
   font-size: 30px;
   line-height: 1.55;
   letter-spacing: 0.05em;
@@ -920,45 +931,175 @@ html, body {
 .state-feedback-item.negative { color: var(--danger); }
 .state-feedback-item.neutral { color: var(--amber); }
 
-/* ========== PAUSE MENU ========== */
+/* ========== 浮动设置面板（ESC打开，小窗口悬浮） ========== */
 #pauseMenu {
-  position: absolute;
+  position: fixed;
   top: 0; left: 0;
   width: 100%; height: 100%;
-  z-index: 35;
+  z-index: 50;
   display: none;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: rgba(3, 6, 10, 0.85);
-  gap: 12px;
+  background: rgba(3, 6, 10, 0.45);
+  backdrop-filter: blur(2px);
 }
 #pauseMenu.active { display: flex; }
 
-.pause-menu-title {
+.float-panel-inner {
+  width: min(340px, 90vw);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 12px 48px rgba(0,0,0,0.6);
+}
+
+.float-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  background: rgba(20, 25, 35, 0.97);
+  border: 1px solid rgba(245, 200, 66, 0.2);
+  border-bottom: none;
+  box-sizing: border-box;
+}
+.float-panel-title {
   font-family: var(--font-narrator);
-  font-size: 24px;
-  letter-spacing: 0.1em;
+  font-size: 18px;
+  letter-spacing: 0.15em;
+  color: var(--amber);
+}
+.float-panel-close {
+  background: none;
+  border: none;
   color: var(--muted);
+  font-size: 18px;
+  cursor: pointer;
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+.float-panel-close:hover {
+  color: var(--text);
+  background: rgba(255,255,255,0.08);
+}
+
+.float-panel-body {
+  padding: 14px 18px 16px;
+  max-height: 70vh;
+  overflow-y: auto;
+  background: rgba(20, 25, 35, 0.97);
+  border: 1px solid rgba(245, 200, 66, 0.2);
+  border-top: none;
+  box-sizing: border-box;
+}
+
+.fp-section {
   margin-bottom: 16px;
 }
-.pause-menu-btn {
-  width: 240px;
-  padding: 12px 0;
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+.fp-section:last-child { margin-bottom: 0; }
+.fp-section-label {
+  font-size: 11px;
   color: var(--muted);
-  cursor: pointer;
-  font-family: var(--font-ui);
-  font-size: 15px;
-  letter-spacing: 0.08em;
-  transition: all 0.3s;
-  text-align: center;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
 }
-.pause-menu-btn:hover {
-  border-color: rgba(255,255,255,0.2);
+
+.fp-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.fp-row label {
+  font-size: 13px;
+  color: var(--text);
+  min-width: 64px;
+  flex-shrink: 0;
+}
+.fp-row input[type="range"] {
+  flex: 1;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255,255,255,0.1);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+.fp-row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px; height: 14px;
+  background: var(--amber);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 6px rgba(245,200,66,0.4);
+}
+.fp-row input[type="range"]::-moz-range-thumb {
+  width: 14px; height: 14px;
+  background: var(--amber);
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+}
+.fp-val {
+  font-size: 11px;
+  color: var(--muted);
+  min-width: 38px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.fp-toggle-row {
+  justify-content: space-between;
+}
+.fp-toggle {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: var(--text);
+  font-size: 12px;
+  padding: 5px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: var(--font-ui);
+}
+.fp-toggle:hover {
+  background: rgba(255,255,255,0.12);
+  border-color: rgba(245,200,66,0.3);
+}
+
+.fp-actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.fp-btn {
+  flex: 1;
+  padding: 9px 0;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.08);
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: var(--font-ui);
+}
+.fp-btn:hover {
+  border-color: rgba(245,200,66,0.3);
   color: var(--text);
 }
+
+/* 旧暂停菜单样式（兼容，已废弃） */
+.pause-menu-title, .pause-menu-btn { display: none; }
 
 /* ========== START SCREEN — 第一屏入口 ========== */
 #startScreen {

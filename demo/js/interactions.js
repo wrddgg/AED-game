@@ -305,41 +305,35 @@ const Interactions = {
       aed_clear_space: [
         {
           state: 2,
-          text: "胸部要裸露、干燥、贴得牢。",
-          action: "擦干胸前皮肤",
-          status: "继续按压，只让出最短空档"
+          text: "拉开胸前衣物，擦干贴片要接触的皮肤。水会影响导电。",
+          action: "擦干皮肤",
+          img: 1
         },
         {
           state: 3,
-          text: "第一片贴右上胸，锁骨下方。",
-          action: "贴右上胸",
-          status: "按贴片图案确认位置"
-        },
-        {
-          state: 3,
-          text: "第二片贴左下胸，左乳头外下方。",
-          action: "贴左下胸",
-          status: "贴牢，不要贴在水和衣物上"
+          text: "按AED贴片图示：第一片右上胸锁骨下方，第二片左下胸乳头外侧。",
+          action: "贴左上胸 + 右下胸",
+          img: 2
         },
         {
           state: 4,
-          text: "AED分析心律。所有人离开。",
-          action: "喊清场",
-          status: "分析时，手离开"
+          text: "AED正在分析心律——所有人后退，不要接触患者！",
+          action: "全部后退",
+          img: 3
         }
       ],
       aed_execute: [
         {
           state: 5,
-          text: "再次扫一圈：无人接触患者。",
+          text: "再次确认：所有人后退，无人接触患者。",
           action: "确认安全",
-          status: "确认后才执行"
+          img: 1
         },
         {
           state: 5,
-          text: "按语音提示执行；电击后立刻继续按压。",
-          action: "执行并继续CPR",
-          status: "不建议电击也继续CPR"
+          text: "建议电击。按语音提示执行；电击后立刻继续按压。",
+          action: "执行电击",
+          img: 2
         }
       ]
     };
@@ -355,6 +349,10 @@ const Interactions = {
       if (stepEl) stepEl.textContent = current.text;
       if (statusEl) statusEl.textContent = current.status || "";
       if (aedBtn) aedBtn.textContent = current.action || "操作";
+      // ★ 切换对应图片
+      if (current.img && Game._showSceneImage) {
+        Game._showSceneImage(current.img);
+      }
     };
 
     this._aedClickHandler = (e) => {

@@ -14,6 +14,10 @@ const Game = {
   rainInterval: null,
   sceneTimerIds: [],
   sceneMediaState: null,
+  _sceneImageEntries: null,
+  _sceneImageCurrent: 0,
+  textSpeed: 1.0,           // 全局字幕/音频速度倍率 (0.5 - 2.0)
+  _floatPanelFromStart: false,
 
   // ==================== 初始化 ====================
   init() {
@@ -82,17 +86,28 @@ const Game = {
     if (this.typingTimer) clearTimeout(this.typingTimer);
     this._clearSceneTimers();
     AudioManager.stopNarration(); // 切换场景时停止上一场景旁白
+    this._stopSceneAudioTracks(); // ★ 清理场景级BGM/环境音轨
     this._sharedVoiceActive = false;  // 清理共享音频状态
     this._sharedNextHolds = null;
+    this._boundAudio = null;         // 清理绑定模式音频引用
+    this._sceneImageEntries = null;
+    this._sceneImageCurrent = 0;
+    const prevSceneId = this.currentSceneId;
     this.currentSceneId = sceneId;
     this.isTyping = false;
+    this._cinematicReady = false;
 
     Interactions.cleanup();
     this._hideAllModules();
     this._clearStackedNarrator();
 
     // 场景切换过渡：先黑入 → 加载新素材 → 黑出
-    this._sceneTransition(() => {
+    this._sceneTransition(async () => {
+      // ★ 电影转场：进雨夜的圆圈时，从下往上滑入第一张图
+      if (sceneId === 'prologue_rain') {
+        console.log('[TRANSITION] starting cinematic for prologue_rain');
+        await this._cinematicTransition('prologue_phone', 'prologue_rain');
+      }
       this._updateStage(scene);
       this._updateRain(scene);
       this._updateSceneLabel(scene);
@@ -126,23 +141,16 @@ const Game = {
   },
 
   // ==================== 场景切换过渡动画 ====================
-  _sceneTransition(onReady) {
+  async _sceneTransition(onReady) {
     const overlay = document.getElementById("sceneTransition");
-    if (!overlay) { onReady(); return; }
+    if (!overlay) { await onReady(); return; }
 
-    // 先黑入（最快淡入）
     overlay.classList.add("active");
-
-    // 等待黑屏生效后切换内容，再淡出
-    setTimeout(() => {
-      onReady();
-      // 给新内容一帧的渲染时间，然后淡出
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          overlay.classList.remove("active");
-        });
-      });
-    }, 300);
+    await this._delay(300);
+    await onReady();
+    // 给新内容一帧渲染时间再淡出
+    await this._delay(100);
+    overlay.classList.remove("active");
   },
 
   // ==================== 条件路由解析 ====================
@@ -283,6 +291,32 @@ const Game = {
     }
   },
 
+  _showSceneImage(imgNum) {
+    if (!imgNum || imgNum < 1) return;
+    const entries = this._sceneImageEntries;
+    if (!entries || !entries.length) {
+      console.warn('[IMG] No image entries for scene');
+      return;
+    }
+    const idx = imgNum - 1;
+    if (idx >= entries.length) {
+      console.warn(`[IMG] img_${String(imgNum).padStart(2,'0')} out of range (max ${entries.length})`);
+      return;
+    }
+    const entry = entries[idx];
+    console.log(`[IMG] show img_${String(imgNum).padStart(2,'0')} | loaded=${entry.loaded} failed=${entry.failed} shouldShow=${entry.shouldShow}`);
+    // 隐藏当前图
+    if (this._sceneImageCurrent >= 1 && this._sceneImageCurrent <= entries.length) {
+      this._setImageEntryVisible(entries[this._sceneImageCurrent - 1], false);
+    }
+    // 显示目标图：移到DOM末尾确保z-index最高
+    if (entry.element && entry.element.parentNode) {
+      entry.element.parentNode.appendChild(entry.element);
+    }
+    this._setImageEntryVisible(entry, true);
+    this._sceneImageCurrent = imgNum;
+  },
+
   _scheduleImageTimeline(scene, imageEntries) {
     const { items, timelineEndMs } = this._buildImageTimeline(imageEntries);
     this.sceneMediaState = {
@@ -330,7 +364,30 @@ const Game = {
 
     this._clearBar();
 
-    // ===== 渲染主行 =====
+    // ===== NEW: 绑定清单模式 — 统一驱动 音频+字幕+图片，倍速全局持久 =====
+    const bound = await this._tryRenderBoundScene(scene);
+    console.log('[BOUND-RESULT] scene=%s bound=%s type=%s', scene.id, bound, typeof bound);
+    if (!bound) SyncLog.modeEnter('BOUND-SKIPPED→fallback', scene.id);  // ★
+    if (bound) {
+      this.isTyping = false;
+      this._updateHUD();
+      this._proceedToNext(scene);
+      return;
+    }
+
+    // ===== 时间戳模式：lines 有 start 字段时，走精确时间轴同步 =====
+    if (scene.lines && scene.lines.length > 0 && this._hasTimestamps(scene.lines)) {
+      SyncLog.modeEnter('TIMED-SEQUENCE(fallback)', scene.id);
+      await this._renderTimedScene(scene);
+      // 时间戳模式已处理 lines + nextLines，跳过旧逻辑
+      this.isTyping = false;
+      this._updateHUD();
+      this._proceedToNext(scene);
+      return;
+    }
+
+    // ===== 渲染主行（旧逻辑：字数均分，无时间戳时使用） =====
+    SyncLog.modeEnter('OLD-LEGACY', scene.id);
     if (scene.lines && scene.lines.length > 0) {
       if (scene.mode === "narration") {
         // 播放旁白音频，基于字数自适应计算每行字幕显示时间
@@ -347,7 +404,8 @@ const Game = {
               // 共享音频：计算全部 narration 行（lines + nextLines中narration）的联合时长
               const narrationNls = scene.nextLines.filter(nl => nl.mode === "narration");
               // 扣除 nextLines 行间延迟，确保字幕在音频结束前完成
-              const nlsDelay = narrationNls.reduce((s, nl) => s + (nl.delay || 400), 0);
+              // ★ 行间延迟需按速度倍率缩放，确保字幕在加速音频结束前完成
+              const nlsDelay = narrationNls.reduce((s, nl) => s + (nl.delay || 400) / this.textSpeed, 0);
               const availableMs = Math.max(0, narrationAudio.duration * 1000 - nlsDelay);
               const combined = this._calcCharBasedHolds(
                 [...scene.lines, ...narrationNls], availableMs
@@ -363,6 +421,7 @@ const Game = {
         for (let i = 0; i < scene.lines.length; i++) {
           if (this.currentSceneId !== scene.id) { this.isTyping = false; return; }
           const hold = (lineHolds.length > 0 && lineHolds[i]) ? lineHolds[i] : undefined;
+          if (scene.lines[i].img) this._showSceneImage(scene.lines[i].img);
           await this._barLine(scene.lines[i], "narration", null, null, hold);
         }
       } else if (scene.mode === "dialogue") {
@@ -380,6 +439,7 @@ const Game = {
           const speaker = (i === 0 && scene.speaker) ? scene.speaker : line.speaker;
           const style = line.style || null;
           const hold = (dialHolds.length > 0 && dialHolds[i]) ? dialHolds[i] : undefined;
+          if (line.img) this._showSceneImage(line.img);
           await this._barLine(line, "dialogue", speaker, style, hold);
         }
       } else if (scene.mode === "choice") {
@@ -394,6 +454,7 @@ const Game = {
         for (let i = 0; i < scene.lines.length; i++) {
           if (this.currentSceneId !== scene.id) { this.isTyping = false; return; }
           const hold = (choiceHolds.length > 0 && choiceHolds[i]) ? choiceHolds[i] : undefined;
+          if (scene.lines[i].img) this._showSceneImage(scene.lines[i].img);
           await this._barLine(scene.lines[i], "narration", null, null, hold);
         }
       }
@@ -452,6 +513,7 @@ const Game = {
             await AudioManager.playNarration(nl.voice);
             _prevHadVoice = true;
           }
+          if (nl.img) this._showSceneImage(nl.img);
           await this._barMultiSpeaker(nl, nextNl);
           i++; // 跳过后一行
           continue;
@@ -468,7 +530,7 @@ const Game = {
         }
 
         if (nl.mode === "narration") {
-          await this._delay(nl.delay || 400);
+          await this._sceneDelay(nl.delay || 400);
           let hold;
           // ★ voiceSpan 继续：使用预计算的hold，不播放新音频
           if (_voiceSpanRemaining > 0) {
@@ -479,8 +541,8 @@ const Game = {
             if (nlAudio && nlAudio.duration > 0) {
               const span = nl.voiceSpan || 1;
               // ★ voiceSpan 延迟补偿：扣除后续行间延迟，确保音频长度覆盖全部字幕
-              const interLineDelay = (nl.delay || 400); // narration 默认 400ms
-              const compensatedMs = Math.max(0, nlAudio.duration * 1000 - (span - 1) * interLineDelay);
+              const interLineDelay = (nl.delay || 400) / this.textSpeed; // 速度感知
+              const compensatedMs = Math.max(0, nlAudio.duration * 1000 / this.textSpeed - (span - 1) * interLineDelay);
               hold = Math.round(compensatedMs / span);
               if (span > 1) {
                 _voiceSpanRemaining = span - 1;
@@ -495,9 +557,10 @@ const Game = {
             _voiceSpanRemaining = 0; // 无voice无nextVoice → 结束任何残留voiceSpan
           }
           narrationIdx++;
+          if (nl.img) this._showSceneImage(nl.img);
           await this._barLine(nl, "narration", null, null, hold);
         } else if (nl.mode === "dialogue") {
-          await this._delay(nl.delay || 500);
+          await this._sceneDelay(nl.delay || 500);
           // 对话行也支持按行独立音频 + 多行共享(voiceSpan)
           if (nl.voice) {
             let hold;
@@ -509,9 +572,9 @@ const Game = {
               const nlAudio = await AudioManager.playNarration(nl.voice);
               if (nlAudio && nlAudio.duration > 0) {
                 const span = nl.voiceSpan || 1;
-                // ★ voiceSpan 延迟补偿
-                const interLineDelay = (nl.delay || 500);
-                const compensatedMs = Math.max(0, nlAudio.duration * 1000 - (span - 1) * interLineDelay);
+                // ★ voiceSpan 延迟补偿（速度感知）
+                const interLineDelay = (nl.delay || 500) / this.textSpeed;
+                const compensatedMs = Math.max(0, nlAudio.duration * 1000 / this.textSpeed - (span - 1) * interLineDelay);
                 hold = Math.round(compensatedMs / span);
                 if (span > 1) {
                   _voiceSpanRemaining = span - 1;
@@ -519,6 +582,7 @@ const Game = {
                 }
               }
             }
+            if (nl.img) this._showSceneImage(nl.img);
             await this._barLine(nl, "dialogue", nl.speaker, nl.style, hold);
             _prevHadVoice = true;
           } else {
@@ -528,10 +592,11 @@ const Game = {
               hold = _voiceSpanHoldD;
               _voiceSpanRemaining--;
             }
+            if (nl.img) this._showSceneImage(nl.img);
             await this._barLine(nl, "dialogue", nl.speaker, nl.style, hold);
           }
           if (nl.note) {
-            await this._delay(200);
+            await this._sceneDelay(200);
             await this._barNote(nl.note);
           }
         }
@@ -545,8 +610,10 @@ const Game = {
       await this._runCPRModule(scene);
       if (this.currentSceneId !== scene.id) { this.isTyping = false; return; }
     } else if (scene.interaction === "aed" && scene.onEnter?.aedMode) {
-      await this._delay(400);
+      console.log('[AED] waiting 1500ms before interaction...');
+      await this._delay(1500);
       if (this.currentSceneId !== scene.id) { this.isTyping = false; return; }
+      console.log('[AED] starting interaction');
       await this._runAEDModule(scene);
       if (this.currentSceneId !== scene.id) { this.isTyping = false; return; }
     } else if (scene.interaction === "assign" && scene.onEnter?.assignMode) {
@@ -603,6 +670,554 @@ const Game = {
         if (remainingMediaMs > 0) {
           await this._delay(remainingMediaMs);
         }
+        await this._delay(800);
+        if (this.currentSceneId !== scene.id) return;
+        this.goToScene(nextId);
+      }
+    }
+  },
+
+  // ==================== 绑定清单模式：音频-字幕锁步系统（彻底绑定） ====================
+  /**
+   * ★ 核心原则：所有计时统一由 audio.currentTime 驱动，不再依赖 setTimeout/onended。
+   * 
+   * 音轨架构（3层并发）：
+   *   L1 旁白音轨 — raf 轮询 currentTime，在音频结束瞬间切下一条字幕
+   *   L2 背景音乐 — 场景级循环，playbackRate 同步变速
+   *   L3 环境音效 — Web Audio 合成 / 文件播放
+   * 
+   * 字幕时序（统一虚拟时钟）：
+   *   有音频 → raf 等待 audio.ended，字幕与音频自然绑定
+   *   无音频 → setTimeout 按 hold/textSpeed 计算，变速时重新调度
+   * 
+   * 变速处理：
+   *   playbackRate 变更 → 音频实际播放速度改变 → 提前/延后 ended 事件
+   *   → 字幕自然跟随，无需额外同步
+   */
+  async _tryRenderBoundScene(scene) {
+    SyncLog.modeEnter('BOUND-MANIFEST', scene.id);  // ★ 诊断日志
+    const manifestUrl = `assets/voices/${scene.id}.json?t=${Date.now()}`;
+    let manifest;
+    try {
+      const resp = await fetch(manifestUrl);
+      if (!resp.ok) return false;
+      manifest = await resp.json();
+    } catch { return false; }
+    if (!manifest.entries || manifest.entries.length === 0) return false;
+
+    const entries = manifest.entries;
+    const sceneId = scene.id;
+
+    this._sceneAudioTracks = [];
+    this._startSceneAudioLayer(scene);
+
+    // 预加载所有语音文件
+    const preloaded = new Map();
+    await Promise.all(entries.map((entry, i) => new Promise(resolve => {
+      if (!entry.file || entry.noVoice) { preloaded.set(i, null); resolve(); return; }
+      const a = new Audio(entry.file);
+      a.preload = "auto";
+      const done = () => { a.playbackRate = this.textSpeed; preloaded.set(i, a); resolve(); };
+      a.addEventListener("canplaythrough", done, { once: true });
+      a.addEventListener("loadedmetadata", done, { once: true });
+      a.addEventListener("error", () => { preloaded.set(i, null); resolve(); }, { once: true });
+      setTimeout(() => { if (!preloaded.has(i)) { a.playbackRate = this.textSpeed; preloaded.set(i, a); resolve(); } }, 4000);
+      a.load();
+    })));
+
+    let idx = 0, cur = null, aborted = false, done = null;
+    let noVoiceTimer = null;
+    let lastImg = 0;
+    let _parallelAudios = [];  // ★ 并发音轨池
+
+    // ★ 给任意音频元素应用 AudioManager 音量
+    const _applyVol = (a, type) => {
+      if (!a) return;
+      const am = AudioManager;
+      const master = am._muted ? 0 : (am._volume.master || 0.8);
+      const group = am._volume[type] || 1;
+      a.volume = Math.max(0, Math.min(1, master * group));
+    };
+
+    const clearNoVoiceTimer = () => {
+      if (noVoiceTimer) { clearTimeout(noVoiceTimer); noVoiceTimer = null; }
+    };
+
+    const stopParallelAudios = () => {
+      _parallelAudios.forEach(a => { try { a.pause(); a.currentTime = 0; } catch(_){} });
+      _parallelAudios = [];
+    };
+
+    const show = (entry, accumulate = false) => {
+      // ★ 图片继承规则
+      let imgNum = entry.img;
+      if (imgNum == null) imgNum = lastImg > 0 ? lastImg : 1;
+      if (imgNum > 0) { this._showSceneImage(imgNum); lastImg = imgNum; }
+      SyncLog.subtitleShow({ scene: sceneId, idx, text: entry.text, note: `bound-show${accumulate?' parallel':''}` });
+      const bar = this._bar();
+      if (!bar) return;
+      // 并行模式：不清理旧字幕，追加显示
+      if (!accumulate) bar.innerHTML = "";
+      const el = document.createElement("div");
+      el.className = entry.mode === "narration" ? "sb-narration" : "sb-dialogue";
+      if (entry.mode !== "narration" && entry.speaker) {
+        const tag = document.createElement("span");
+        tag.className = "sb-speaker character";
+        tag.textContent = entry.speaker;
+        el.appendChild(tag);
+      }
+      el.appendChild(document.createTextNode(entry.text));
+      if (entry.hl && entry.hl.length) {
+        let h = el.innerHTML;
+        for (const kw of entry.hl) {
+          const re = new RegExp(`(${kw.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'g');
+          h = h.replace(re, '<em class="hl">$1</em>');
+        }
+        el.innerHTML = h;
+      }
+      bar.appendChild(el);
+    };
+
+    const next = () => {
+      if (aborted) { console.log('[BOUND-NEXT] aborted=true, skipping. idx=%d/%d', idx, entries.length); return; }
+      clearNoVoiceTimer();
+      if (idx >= entries.length) { console.log('[BOUND-DONE] idx=%d len=%d aborted=%s', idx, entries.length, aborted); if (done) done(true); return; }
+      const entry = entries[idx];
+      const audio = preloaded.get(idx);
+      console.log('[NEXT] idx=%d speaker=%s parallel=%s audio=%s novoice=%s', idx, entry.speaker||'?', entry.parallel, !!audio, entry.noVoice);
+      idx++;
+      show(entry);
+
+      // 无音频条目
+      if (!audio || entry.noVoice) {
+        cur = null; this._boundAudio = null;
+        if (entry.img === null && entry.hold === null) { next(); return; }
+        const rawHold = entry.hold || 2000;
+        const holdMs = Math.max(200, Math.round(rawHold / this.textSpeed));
+        const scheduleNoVoice = () => {
+          clearNoVoiceTimer();
+          if (aborted) return;
+          noVoiceTimer = setTimeout(next, holdMs);
+        };
+        scheduleNoVoice();
+        return;
+      }
+
+      // ★ 并行音轨
+      if (entry.parallel) {
+        _parallelAudios.push(audio);
+        audio.currentTime = 0;
+        audio.playbackRate = this.textSpeed;
+        _applyVol(audio, 'voice');
+        console.log('[PARALLEL] START idx=%d speaker=%s', idx-1, entry.speaker||'narration');
+        audio.play().catch(() => {});
+        const nextEntry = entries[idx];
+        if (nextEntry) {
+          const delayMs = Math.round((entry.parallelDelay || 1500) / this.textSpeed);
+          show(nextEntry, true);
+          const nextAudio = preloaded.get(idx);
+          if (nextAudio && !nextEntry.noVoice) {
+            setTimeout(() => {
+              if (aborted) return;
+              _parallelAudios.push(nextAudio);
+              nextAudio.currentTime = 0;
+              nextAudio.playbackRate = this.textSpeed;
+              _applyVol(nextAudio, 'voice');
+              console.log('[PARALLEL] ALSO idx=%d speaker=%s delay=%dms', idx, nextEntry.speaker||'narration', delayMs);
+              nextAudio.play().catch(() => {});
+            }, delayMs);
+          }
+          idx++;
+        }
+        next();
+        return;
+      }
+
+      // 正常模式：等音频结束 + hold 兜底（防 AI 截断语音）
+      cur = audio; this._boundAudio = audio;
+      audio.currentTime = 0;
+      audio.playbackRate = this.textSpeed;
+      _applyVol(audio, 'voice');
+      SyncLog.audioStart({ scene: sceneId, idx, text: entry.text, rate: this.textSpeed });
+      const startedAt = Date.now();
+      const minHoldMs = entry.hold ? Math.round(entry.hold / this.textSpeed) : 0;
+      audio.play().catch(() => { cur = null; this._boundAudio = null; next(); });
+
+      let endedRaf = null;
+      let audibleEnded = false;
+      const tryAdvance = () => {
+        if (aborted) return;
+        const elapsed = Date.now() - startedAt;
+        if (elapsed < minHoldMs) {
+          setTimeout(tryAdvance, minHoldMs - elapsed + 50);
+          return;
+        }
+        if (endedRaf) cancelAnimationFrame(endedRaf);
+        endedRaf = null;
+        cur = null; this._boundAudio = null;
+        next();
+      };
+      const pollEnded = () => {
+        if (aborted) { endedRaf = null; return; }
+        if (cur !== audio || audio.ended) {
+          if (audio.ended && !audibleEnded) {
+            audibleEnded = true;
+            SyncLog.audioEnded({ scene: sceneId, idx, atime: audio.currentTime, rate: this.textSpeed });
+            tryAdvance();
+            return;
+          }
+          endedRaf = null;
+          return;
+        }
+        endedRaf = requestAnimationFrame(pollEnded);
+      };
+      pollEnded();
+
+      audio.onerror = () => {
+        if (endedRaf) cancelAnimationFrame(endedRaf);
+        endedRaf = null;
+        cur = null; this._boundAudio = null;
+        next();
+      };
+    };
+
+    return new Promise(resolve => {
+      done = resolve;
+      // ★ 速度轮询：变速时同步所有音轨 + 重新调度无音频计时器
+      const sp = setInterval(() => {
+        if (aborted || this.currentSceneId !== sceneId) { clearInterval(sp); return; }
+        const rate = this.textSpeed;
+        // L1 旁白 + 并行音轨：同步变速 + 音量
+        if (cur && !cur.paused) { cur.playbackRate = rate; _applyVol(cur, 'voice'); }
+        _parallelAudios.forEach(a => { if (a && !a.paused) { a.playbackRate = rate; _applyVol(a, 'voice'); } });
+        // L2/L3：同步 BGM/环境音
+        if (this._sceneAudioTracks) {
+          this._sceneAudioTracks.forEach(a => {
+            if (a && !a.paused) { a.playbackRate = rate; _applyVol(a, a.dataset?.group || 'sfx'); }
+          });
+        }
+      }, 150);
+      // 场景切换检测
+      const chk = setInterval(() => {
+        if (this.currentSceneId !== sceneId) {
+          console.log('[BOUND-CHK] scene changed: %s -> %s, aborted=%s, idx=%d/%d', sceneId, this.currentSceneId, aborted, idx, entries.length);
+          aborted = true;
+          clearNoVoiceTimer();
+          stopParallelAudios();
+          if (cur) { cur.pause(); cur.currentTime = 0; cur = null; this._boundAudio = null; }
+          this._stopSceneAudioTracks();
+          clearInterval(chk); clearInterval(sp);
+          if (done) done(true);  // ★ 即使中断也返回 true，防止 OLD-LEGACY 重播
+        }
+      }, 100);
+      next();
+    });
+  },
+
+  // ★ 场景音频层：BGM + 环境音（独立于旁白音轨）
+  _sceneAudioTracks: [],
+  
+  _startSceneAudioLayer(scene) {
+    this._stopSceneAudioTracks();
+    const sounds = scene.assets?.sounds || [];
+    const sceneId = scene.id;
+
+    // ★ 自动映射场景 → 实际音效文件
+    const isRain = scene.rain;
+    const isPrologue = sceneId.startsWith('prologue_');
+    const hasCpr = scene.reviewTags?.some(t => ['CPR', '第四阶段', '第五阶段', '第三阶段'].includes(t));
+    const hasCrowd = scene.reviewTags?.some(t => ['第三阶段', '围观'].includes(t)) || sceneId.includes('crowd') || sceneId.includes('scam');
+    const hasAed = scene.reviewTags?.some(t => ['AED', '第六阶段'].includes(t)) || sceneId.includes('aed_');
+
+    // L2 BGM（优先用文件，否则用 Web Audio）
+    const bgmSound = sounds.find(s => s.type === "bgm");
+    if (bgmSound?.url) {
+      this._loadAndPlayAudio(bgmSound.url, { loop: true, type: "bgm", volume: bgmSound.volume || 0.6 });
+    } else if (hasCpr || sceneId.includes('tension') || sceneId.includes('family')) {
+      AudioManager.startTensionMusic(0.3, 0.2);
+    }
+
+    // L3 环境音（用实际音频文件）
+    const ambientSound = sounds.find(s => s.type === "ambient");
+    if (ambientSound?.url) {
+      this._loadAndPlayAudio(ambientSound.url, { loop: true, type: "ambient", volume: ambientSound.volume || 0.5 });
+    }
+    // 雨景 → 雨声
+    if (isRain) {
+      this._loadAndPlayAudio('assets/audio/ambient/rain_loop_01', { loop: true, type: "ambient", volume: 0.2 });
+    }
+    // 人群嘈杂
+    if (hasCrowd) {
+      this._loadAndPlayAudio('assets/audio/ambient/crowd_murmur_01', { loop: true, type: "ambient", volume: 0.05 });
+    }
+
+    // L3 SFX（用实际音频文件）
+    sounds.filter(s => s.type === "sfx").forEach(sfx => {
+      if (sfx.url) {
+        this._loadAndPlayAudio(sfx.url, { loop: false, type: "sfx", volume: sfx.volume || 0.8 });
+      }
+    });
+    // 开场电动车急刹
+    if (sceneId.includes('choice_1') || sceneId.includes('prologue_phone')) {
+      this._loadAndPlayAudio('assets/audio/sfx/scooter_brake_01', { loop: false, type: "sfx", volume: 0.6 });
+    }
+    // AED场景 → AED音效
+    if (hasAed) {
+      this._loadAndPlayAudio('assets/audio/sfx/aed_power_on_01', { loop: false, type: "sfx", volume: 0.7 });
+    }
+    // 救护车到达 → 警笛
+    if (sceneId.includes('heartbeat') || sceneId.includes('bad_ending')) {
+      this._loadAndPlayAudio('assets/audio/sfx/ambulance_siren_01', { loop: false, type: "sfx", volume: 0.5 });
+    }
+  },
+
+  async _loadAndPlayAudio(basePath, { loop = false, type = "sfx", volume = 1.0 } = {}) {
+    // 复用AudioManager的文件解析
+    const src = await AudioManager._resolveSource(basePath);
+    if (!src) return null;
+    const a = new Audio(src);
+    a.loop = loop;
+    a.preload = "auto";
+    a.volume = Math.max(0, Math.min(1, (AudioManager._volume.master || 0.8) * (AudioManager._volume[type] || 1) * volume));
+    a.playbackRate = this.textSpeed;
+    a.play().catch(() => {});
+    // 播放完毕后从列表移除
+    if (!loop) {
+      a.addEventListener("ended", () => {
+        this._sceneAudioTracks = this._sceneAudioTracks.filter(t => t !== a);
+      }, { once: true });
+    }
+    this._sceneAudioTracks.push(a);
+    return a;
+  },
+
+  _stopSceneAudioTracks() {
+    if (!this._sceneAudioTracks) { this._sceneAudioTracks = []; return; }
+    this._sceneAudioTracks.forEach(a => {
+      try { a.pause(); a.currentTime = 0; a.removeAttribute("src"); a.load(); } catch (_) {}
+    });
+    this._sceneAudioTracks = [];
+    // ★ 同时停止 Web Audio 合成的场景音（雨声/紧张音乐等）
+    AudioManager.stopBackgroundAmbience();
+    AudioManager.stopTensionMusic();
+    AudioManager.stopCrowdNoise();
+  },
+
+  // ==================== 时间戳模式：整场景渲染 ====================
+  /**
+   * 时间戳模式渲染流程：
+   * 1. 确定主音频（narrationVoice / dialogueVoice）
+   * 2. 构建 entries 数组（lines + nextLines 中有时间戳的行）
+   * 3. 播放音频，按 audio.currentTime 同步显示字幕+图片
+   * 4. 处理无时间戳的剩余 nextLines（逐行 voice 等）
+   */
+  async _renderTimedScene(scene) {
+    SyncLog.modeEnter('TIMED-SEQUENCE', scene.id);  // ★ 诊断日志
+    // 确定主音频
+    const mainVoice = scene.narrationVoice || scene.dialogueVoice;
+    if (!mainVoice) {
+      // 无音频但有时间戳 → 按时间戳纯计时播放
+      await this._playTimedNoAudio(scene);
+      return;
+    }
+
+    // 播放主音频
+    const audio = await AudioManager.playNarration(mainVoice);
+    if (!audio) {
+      // 音频加载失败 → 回退到无音频时间戳模式
+      await this._playTimedNoAudio(scene);
+      return;
+    }
+
+    // 构建 lines 的 entries
+    const entries = [];
+    scene.lines.forEach(line => {
+      if (line.start !== undefined) {
+        entries.push({
+          line,
+          start: line.start,
+          end: line.end,
+          type: scene.mode === "dialogue" ? "dialogue" : "narration",
+          speaker: scene.speaker || line.speaker,
+          style: line.style
+        });
+      }
+    });
+
+    // 处理 nextLines
+    const remainingNextLines = [];
+    if (scene.nextLines) {
+      // 判断 nextLines 是否共享同一音频
+      const sharedVoice = scene.nextVoice && scene.nextVoice === mainVoice;
+
+      if (sharedVoice) {
+        // 共享音频：nextLines 中有时间戳的行加入同一序列
+        scene.nextLines.forEach(nl => {
+          if (nl.start !== undefined) {
+            entries.push({
+              line: nl,
+              start: nl.start,
+              end: nl.end,
+              type: nl.mode || "narration",
+              speaker: nl.speaker,
+              style: nl.style
+            });
+          } else {
+            remainingNextLines.push(nl);
+          }
+        });
+      } else if (scene.nextVoice && this._hasTimestamps(scene.nextLines)) {
+        // nextLines 有独立音频和时间戳 → 先播 mainVoice 的 lines，再播 nextVoice 的 nextLines
+        await this._playTimedSequence(audio, entries);
+        if (this.currentSceneId !== scene.id) return;
+
+        const nextAudio = await AudioManager.playNarration(scene.nextVoice);
+        if (nextAudio) {
+          const nextEntries = [];
+          scene.nextLines.forEach(nl => {
+            if (nl.start !== undefined) {
+              nextEntries.push({
+                line: nl,
+                start: nl.start,
+                end: nl.end,
+                type: nl.mode || "narration",
+                speaker: nl.speaker,
+                style: nl.style
+              });
+            } else {
+              remainingNextLines.push(nl);
+            }
+          });
+          await this._playTimedSequence(nextAudio, nextEntries);
+        }
+      } else {
+        // nextLines 无时间戳 → 全部走旧逻辑
+        remainingNextLines.push(...scene.nextLines);
+      }
+    }
+
+    // 如果还没播放过（非shared非nextVoice分支），现在播放主音频序列
+    if (!scene.nextVoice || scene.nextVoice === mainVoice) {
+      await this._playTimedSequence(audio, entries);
+    }
+
+    if (this.currentSceneId !== scene.id) return;
+
+    // 处理剩余的无时间戳 nextLines（逐行 voice 模式）
+    if (remainingNextLines.length > 0) {
+      await this._renderRemainingNextLines(scene, remainingNextLines);
+    }
+  },
+
+  /**
+   * 无音频时间戳模式：用 setTimeout 模拟时间轴
+   */
+  async _playTimedNoAudio(scene) {
+    const allLines = [...(scene.lines || []), ...(scene.nextLines || []).filter(nl => nl.start !== undefined)];
+    const sorted = allLines.filter(l => l.start !== undefined).sort((a, b) => a.start - b.start);
+
+    for (const line of sorted) {
+      if (this.currentSceneId !== scene.id) return;
+      if (line.img) this._showSceneImage(line.img);
+      const type = line.mode || scene.mode || "narration";
+      this._displaySubtitle(line, type, line.speaker || scene.speaker, line.style);
+      // 等到下一条的start，或end
+      const nextLine = sorted[sorted.indexOf(line) + 1];
+      const waitUntil = line.end || (nextLine ? nextLine.start : line.start + 3);
+      await this._delay(Math.max(200, (waitUntil - line.start) * 1000 / this.textSpeed));
+    }
+  },
+
+  /**
+   * 渲染剩余的无时间戳 nextLines（保留旧逻辑的逐行voice/voiceSpan处理）
+   */
+  async _renderRemainingNextLines(scene, nextLines) {
+    for (let i = 0; i < nextLines.length; i++) {
+      if (this.currentSceneId !== scene.id) return;
+      const nl = nextLines[i];
+
+      if (nl.mode === "narration") {
+        await this._sceneDelay(nl.delay || 400);
+        let hold;
+        if (nl.voice) {
+          const nlAudio = await AudioManager.playNarration(nl.voice);
+          if (nlAudio && nlAudio.duration > 0) {
+            const span = nl.voiceSpan || 1;
+            const interLineDelay = (nl.delay || 400) / this.textSpeed;
+            const compensatedMs = Math.max(0, nlAudio.duration * 1000 / this.textSpeed - (span - 1) * interLineDelay);
+            hold = Math.round(compensatedMs / span);
+          }
+        }
+        if (nl.img) this._showSceneImage(nl.img);
+        await this._barLine(nl, "narration", null, null, hold);
+      } else if (nl.mode === "dialogue") {
+        await this._sceneDelay(nl.delay || 500);
+        let hold;
+        if (nl.voice) {
+          const nlAudio = await AudioManager.playNarration(nl.voice);
+          if (nlAudio && nlAudio.duration > 0) {
+            const span = nl.voiceSpan || 1;
+            const interLineDelay = (nl.delay || 500) / this.textSpeed;
+            const compensatedMs = Math.max(0, nlAudio.duration * 1000 / this.textSpeed - (span - 1) * interLineDelay);
+            hold = Math.round(compensatedMs / span);
+          }
+        }
+        if (nl.img) this._showSceneImage(nl.img);
+        await this._barLine(nl, "dialogue", nl.speaker, nl.style, hold);
+      }
+    }
+  },
+
+  /**
+   * 场景结束后的推进逻辑（时间戳模式专用，复用旧逻辑的尾部）
+   */
+  async _proceedToNext(scene) {
+    // 交互模块
+    if (scene.interaction === "cpr" && scene.onEnter?.cprMode) {
+      await this._delay(400);
+      if (this.currentSceneId !== scene.id) return;
+      await this._runCPRModule(scene);
+      if (this.currentSceneId !== scene.id) return;
+    } else if (scene.interaction === "aed" && scene.onEnter?.aedMode) {
+      console.log('[AED-PROCEED] waiting 1500ms...');
+      await this._delay(1500);
+      if (this.currentSceneId !== scene.id) return;
+      console.log('[AED-PROCEED] starting');
+      await this._runAEDModule(scene);
+      if (this.currentSceneId !== scene.id) return;
+    } else if (scene.interaction === "assign" && scene.onEnter?.assignMode) {
+      await this._delay(400);
+      if (this.currentSceneId !== scene.id) return;
+      await this._runAssignModule(scene);
+      if (this.currentSceneId !== scene.id) return;
+    } else if (scene.interaction === "takeover" && scene.onEnter?.takeoverMode) {
+      await this._delay(400);
+      if (this.currentSceneId !== scene.id) return;
+      await this._runTakeoverModule(scene);
+      if (this.currentSceneId !== scene.id) return;
+    }
+
+    // 选择
+    if (scene.choices) {
+      await this._delay(600);
+      if (this.currentSceneId !== scene.id) return;
+      this._showChoices(scene);
+      return;
+    }
+
+    // 自动推进
+    if (!scene.choices && scene.mode !== "review") {
+      const nextId = this._resolveNext(scene);
+      if (nextId) {
+        if (scene.playOpeningVideo) {
+          this._clearBar();
+          await this._delay(600);
+          if (this.currentSceneId !== scene.id) return;
+          await this._playOpeningVideo();
+          if (this.currentSceneId !== scene.id) return;
+        }
+        const remainingMediaMs = this._getRemainingSceneMediaMs(scene.id);
+        if (remainingMediaMs > 0) await this._delay(remainingMediaMs);
         await this._delay(800);
         if (this.currentSceneId !== scene.id) return;
         this.goToScene(nextId);
@@ -727,6 +1342,146 @@ const Game = {
     }
   },
 
+  // ==================== 时间戳同步播放（专业字幕-音频绑定） ====================
+  /**
+   * 检测场景是否使用时间戳模式
+   * 时间戳模式：每条字幕有 start（秒），直接和 audio.currentTime 同步
+   */
+  _hasTimestamps(lines) {
+    return lines && lines.some(l => l.start !== undefined);
+  },
+
+  /**
+   * 直接显示一条字幕（不经过hold计时，由时间戳驱动）
+   */
+  _displaySubtitle(line, type, speaker, style) {
+    const bar = this._bar();
+    if (!bar) return;
+    bar.innerHTML = "";
+
+    const isNarration = type === "narration";
+    const el = document.createElement("div");
+    el.className = isNarration ? "sb-narration" : "sb-dialogue";
+
+    if (!isNarration && speaker) {
+      const tag = document.createElement("span");
+      tag.className = "sb-speaker" + (style ? ` ${style}` : " character");
+      tag.textContent = speaker;
+      el.appendChild(tag);
+    }
+
+    el.appendChild(document.createTextNode(line.text));
+    bar.appendChild(el);
+
+    // 注释小字
+    if (line.note) {
+      const noteEl = document.createElement("div");
+      noteEl.className = "sb-note";
+      noteEl.textContent = line.note;
+      bar.appendChild(noteEl);
+    }
+  },
+
+  /**
+   * 基于时间戳的字幕-音频同步播放（虚拟时间轴）
+   * ★ 不再用 audio.currentTime 做对比（它不受 playbackRate 影响）。
+   * ★ 改用独立虚拟时钟：每帧累加 deltaTime * playbackRate，与音频实际播放完全一致。
+   * @param {HTMLAudioElement} audio - 已开始播放的音频
+   * @param {Array} entries - [{ line, start, end, type, speaker, style }]
+   *   start/end 为秒，相对于音频原始时间轴
+   * @returns {Promise} 所有字幕播完或音频结束时resolve
+   */
+  _playTimedSequence(audio, entries) {
+    return new Promise(resolve => {
+      if (!audio || !entries || entries.length === 0) { resolve(); return; }
+
+      audio.playbackRate = this.textSpeed;
+
+      let currentIdx = 0;
+      let rafId = null;
+      let spCheck = null;
+      let resolved = false;
+      let lastTimestamp = 0;
+      let virtualTime = 0;  // ★ 虚拟时钟（秒），与音频播放速度完全同步
+      const sceneId = this.currentSceneId;
+
+      const cleanup = () => {
+        if (rafId) cancelAnimationFrame(rafId);
+        if (spCheck) clearInterval(spCheck);
+        rafId = null;
+        spCheck = null;
+      };
+
+      const finish = () => {
+        if (resolved) return;
+        resolved = true;
+        cleanup();
+        resolve();
+      };
+
+      const tick = (timestamp) => {
+        if (resolved) return;
+        if (this.currentSceneId !== sceneId) { finish(); return; }
+
+        // ★ 推进虚拟时钟：deltaTime * 当前 playbackRate
+        if (lastTimestamp > 0) {
+          const dt = (timestamp - lastTimestamp) / 1000;  // 秒
+          virtualTime += dt * audio.playbackRate;
+        }
+        lastTimestamp = timestamp;
+
+        // ★ 诊断：每 500ms 打印一次虚拟时钟 vs 实际音频时钟
+        if (SyncLog._enabled) {
+          const tInt = Math.floor(virtualTime * 2);  // 每0.5秒一次
+          if (!tick._lastLogInt || tInt !== tick._lastLogInt) {
+            tick._lastLogInt = tInt;
+            SyncLog.vclockTick({ scene: sceneId, vtime: virtualTime, atime: audio.currentTime, rate: audio.playbackRate, note: 'raf-tick' });
+          }
+        }
+
+        // 按虚拟时间轴显示字幕
+        while (currentIdx < entries.length && virtualTime >= entries[currentIdx].start) {
+          const entry = entries[currentIdx];
+          SyncLog.subtitleShow({ scene: sceneId, idx: currentIdx, vtime: virtualTime, text: entry.line.text, note: `timed-trigger start=${entry.line.start}s` });  // ★
+          if (entry.line.img) this._showSceneImage(entry.line.img);
+          this._displaySubtitle(entry.line, entry.type, entry.speaker, entry.style);
+          currentIdx++;
+        }
+
+        // 全部字幕已显示
+        if (currentIdx >= entries.length) {
+          const lastEntry = entries[entries.length - 1];
+          const endSec = lastEntry.end || (audio.duration || virtualTime + 2);
+          if (virtualTime >= endSec || audio.ended) {
+            finish();
+            return;
+          }
+        }
+
+        rafId = requestAnimationFrame(tick);
+      };
+
+      audio.addEventListener("ended", finish, { once: true });
+      audio.addEventListener("error", finish, { once: true });
+
+      // ★ 速度轮询：变速时同步 playbackRate（虚拟时钟自然跟随）
+      spCheck = setInterval(() => {
+        if (resolved || this.currentSceneId !== sceneId) {
+          clearInterval(spCheck); spCheck = null; return;
+        }
+        if (audio && !audio.paused) {
+          audio.playbackRate = this.textSpeed;
+        }
+      }, 150);
+
+      rafId = requestAnimationFrame(tick);
+
+      // 安全阀（按最大时长保守估计）
+      const safetyMs = ((audio.duration || 120) / Math.max(0.5, this.textSpeed) + 5) * 1000;
+      setTimeout(finish, safetyMs);
+    });
+  },
+
   // ==================== 底部字幕带：narration/dialogue ====================
   // 当前行结束回调（点击跳过时触发）
   _barLine(line, type, speaker, style, customHold) {
@@ -766,8 +1521,16 @@ const Game = {
       el.appendChild(document.createTextNode(text));
       bar.appendChild(el);
 
-      // 优先使用自定义hold（音频时长控制），其次使用line.hold，最后使用默认值
-      const hold = customHold || line.hold || (isNarration ? 2800 : 2200);
+      // hold计算：
+      // - customHold（来自_calcCharBasedHolds或voiceSpan）已含速度倍率，不再除
+      // - line.hold或默认值需要除以textSpeed
+      let hold;
+      if (customHold) {
+        hold = Math.max(200, Math.round(customHold));
+      } else {
+        const baseHold = line.hold || (isNarration ? 2800 : 2200);
+        hold = Math.max(200, Math.round(baseHold / this.textSpeed));
+      }
       this.typingTimer = setTimeout(() => {
         this._lineResolve = null;
         resolve();
@@ -805,7 +1568,7 @@ const Game = {
       this.typingTimer = setTimeout(() => {
         this._lineResolve = null;
         resolve();
-      }, 2800);
+      }, Math.max(200, Math.round(2800 / this.textSpeed)));
     });
   },
 
@@ -840,7 +1603,7 @@ const Game = {
     el2.appendChild(text2);
     bar.appendChild(el2);
 
-    await this._delay(2000);
+    await this._delay(Math.round(2000 / this.textSpeed));
   },
 
   // ==================== 清空底部字幕带 ====================
@@ -872,12 +1635,17 @@ const Game = {
 
   _loadImageSlot(entry, mediaLayer, stage, onResolve) {
     const slot = entry.slot;
-    const candidates = this._buildAssetCandidates(slot.url, [".webp", ".png", ".jpg", ".jpeg"]);
+    const candidates = this._buildAssetCandidates(slot.url, [".png", ".jpg", ".jpeg", ".webp"]);
     if (!candidates.length) {
       entry.failed = true;
       onResolve(false);
       return;
     }
+
+    // ★ 检测本场景是否有"先播视频"的video slot
+    const scene = (this.currentSceneId && typeof SCENES !== "undefined") ? SCENES[this.currentSceneId] : null;
+    const hasPlayFirstVideo = scene?.assets?.videos?.some(v => v.playFirst === true);
+    entry.shouldShow = !hasPlayFirstVideo;
 
     const img = document.createElement("img");
     img.className = `scene-img ${slot.cssClass || ""}`;
@@ -922,8 +1690,9 @@ const Game = {
     const vid = document.createElement("video");
     vid.className = `scene-video ${slot.cssClass || ""}`;
     vid.muted = true;
-    vid.loop = true;
     vid.playsInline = true;
+    const playFirst = slot.playFirst === true;
+    vid.loop = !playFirst;
     let index = 0;
 
     const tryNext = () => {
@@ -941,6 +1710,30 @@ const Game = {
       stage.style.backgroundImage = "";
       stage.className = "";
       vid.play().catch(() => {});
+
+      if (playFirst) {
+        // 视频播完后再让图片接管
+        vid.onended = () => {
+          vid.classList.add("fading");
+          vid.classList.remove("active");
+          // 解锁所有 image entry
+          if (this._sceneImageEntries) {
+            this._sceneImageEntries.forEach(entry => {
+              entry.shouldShow = true;
+              if (entry.loaded && entry.element && !entry.hasShown) {
+                entry.element.classList.add("active");
+                entry.hasShown = true;
+              }
+            });
+          }
+          // 视频淡出后从 DOM 移除
+          setTimeout(() => {
+            if (vid.parentNode) vid.parentNode.removeChild(vid);
+            vid.removeAttribute("src");
+            vid.load();
+          }, 1000);
+        };
+      }
       onResolve(true);
     };
     vid.onerror = tryNext;
@@ -972,7 +1765,13 @@ const Game = {
     const fallback = scene.stage || "rain_road";
     const sceneId = scene.id;
 
-    if (mediaLayer) mediaLayer.innerHTML = "";
+    if (mediaLayer) {
+      if (this._cinematicReady) {
+        this._cinematicReady = false;  // 仅本次跳过
+      } else {
+        mediaLayer.innerHTML = "";
+      }
+    }
 
     const assets = scene.assets || {};
     const images = (assets.images || []).filter(img => img.url && img.url.trim() !== "");
@@ -1006,7 +1805,10 @@ const Game = {
 
       videos.forEach(slot => this._loadVideoSlot(slot, mediaLayer, stage, handleResolved));
       imageEntries.forEach(entry => this._loadImageSlot(entry, mediaLayer, stage, handleResolved));
-      this._scheduleImageTimeline(scene, imageEntries);
+      // Subtitle-bound image switching: store entries, skip fixed-interval timeline
+      this._sceneImageEntries = imageEntries;
+      this._sceneImageCurrent = 0;
+      this.sceneMediaState = { sceneId, startedAt: this._now(), timelineEndMs: 0 };
 
       this._scheduleSceneTimer(sceneId, 5000, () => {
         if (!loadedAny && !fallbackApplied) {
@@ -1178,28 +1980,26 @@ const Game = {
 
   // ==================== 暂停菜单 ====================
   _showPauseMenu() {
-    this.paused = true;
-    document.getElementById("pauseMenu").classList.add("active");
+    this._showFloatPanel(false);
   },
 
   _hidePauseMenu() {
-    this.paused = false;
-    document.getElementById("pauseMenu").classList.remove("active");
+    this._hideFloatPanel();
   },
 
   _togglePause() {
-    if (this.paused) this._hidePauseMenu();
-    else this._showPauseMenu();
+    if (this.paused) this._hideFloatPanel();
+    else this._showFloatPanel(false);
   },
 
   // ==================== 全局输入绑定 ====================
   _bindGlobalInputs() {
     document.addEventListener("keydown", (e) => {
-      // 暂停菜单中
+      // 浮动面板打开时
       if (this.paused) {
-        if (e.code === "Escape" || e.code === "Space") {
+        if (e.code === "Escape") {
           e.preventDefault();
-          this._hidePauseMenu();
+          this._hideFloatPanel();
         }
         return;
       }
@@ -1207,7 +2007,7 @@ const Game = {
       // 全局快捷键
       if (e.code === "Escape") {
         e.preventDefault();
-        this._togglePause();
+        this._showFloatPanel(false);
         return;
       }
       if (e.code === "KeyH" && !e.ctrlKey && !e.metaKey) {
@@ -1242,28 +2042,23 @@ const Game = {
       if (e.target.closest("#debugPanel")) return;
     });
 
-    // 开始画面点击（在index.html中处理）
+    // 浮动面板：点击外部关闭（面板背景层）
+    document.getElementById("pauseMenu")?.addEventListener("click", (e) => {
+      // 仅当点击的是面板背景层本身（非内部内容）时关闭
+      if (e.target === e.currentTarget) {
+        this._hideFloatPanel();
+      }
+    });
 
-    // 暂停菜单按钮
-    document.getElementById("pauseResume")?.addEventListener("click", () => this._hidePauseMenu());
-    document.getElementById("pauseRestart")?.addEventListener("click", () => {
-      this._hidePauseMenu();
-      this._returnToMainMenu();
-    });
-    document.getElementById("pauseToggleHUD")?.addEventListener("click", () => {
-      this.toggleHUD();
-      this._hidePauseMenu();
-    });
-    document.getElementById("pauseSave")?.addEventListener("click", () => {
-      this._saveProgress();
-      this._showPauseMessage("进度已保存");
-    });
+    // 浮动面板关闭按钮
+    document.getElementById("pauseResume")?.addEventListener("click", () => this._hideFloatPanel());
   },
 
   // ==================== 重新开始 ====================
   restartGame() {
     if (this.typingTimer) clearTimeout(this.typingTimer);
     this._clearSceneTimers();
+    this._stopSceneAudioTracks(); // ★ 清理场景音轨
     this._hideAllModules();
     this._hideChoices();
     this._clearBar();
@@ -1272,6 +2067,7 @@ const Game = {
     document.getElementById("reviewLayer").innerHTML = "";
     document.getElementById("pauseMenu").classList.remove("active");
     this.paused = false;
+    this._floatPanelFromStart = false;
     this.currentSceneId = null;
     this._sharedVoiceActive = false;
     this._sharedNextHolds = null;
@@ -1355,36 +2151,232 @@ const Game = {
   _calcCharBasedHolds(lines, totalAudioMs, interDelayMs = 0) {
     if (!lines || lines.length === 0) return [];
 
-    const totalChars = lines.reduce((sum, line) => sum + (line.text ? line.text.length : 0), 0);
-    if (totalChars === 0) {
-      // 无文本则均分
-      return lines.map(() => Math.round(totalAudioMs / lines.length));
+    const effectiveMs = totalAudioMs / this.textSpeed;
+    const effectiveInterDelay = interDelayMs / this.textSpeed;
+
+    // 如果所有行都有显式hold，按速度倍率缩放后使用
+    const allHaveHold = lines.every(l => typeof l.hold === 'number' && l.hold > 0);
+    if (allHaveHold) {
+      return lines.map(l => Math.round(l.hold / this.textSpeed));
     }
 
-    const availableMs = Math.max(0, totalAudioMs - interDelayMs);
-    const MIN_HOLD = 600;   // 最短显示时间（毫秒），防止短句一闪而过
-    const MAX_HOLD = 8000;  // 最长显示时间（毫秒），防止长句滞留过久
+    // 标记哪些行有显式hold，按速度倍率缩放
+    const speedScale = this.textSpeed || 1.0;
+    const hasHold = lines.map(l => typeof l.hold === 'number' && l.hold > 0);
+    const scaledHolds = lines.map((l, i) => hasHold[i] ? Math.round(l.hold / speedScale) : 0);
+    const explicitTotal = scaledHolds.reduce((s, h) => s + h, 0);
+    const remainingMs = Math.max(0, effectiveMs - effectiveInterDelay - explicitTotal);
 
-    // 按字数比例初步分配
-    const rawHolds = lines.map(line => {
-      const chars = line.text ? line.text.length : 0;
-      return Math.round((chars / totalChars) * availableMs);
+    // 只用没有hold的行计算字数比例
+    const freeLines = lines.map((l, i) => hasHold[i] ? null : l);
+    const freeChars = freeLines.reduce((s, l) => s + (l && l.text ? l.text.length : 0), 0);
+    const freeCount = freeLines.filter(l => l !== null).length;
+
+    if (freeCount === 0) {
+      return scaledHolds;
+    }
+    if (freeChars === 0) {
+      const avg = Math.round(remainingMs / freeCount);
+      return lines.map((l, i) => hasHold[i] ? l.hold : avg);
+    }
+
+    const MIN_HOLD = 1800;
+    const MAX_HOLD = 4500;
+
+    // 按字数分配剩余时间，clamp到合理范围
+    let raw = lines.map((l, i) => {
+      if (hasHold[i]) return scaledHolds[i];
+      const chars = l.text ? l.text.length : 0;
+      return Math.max(MIN_HOLD, Math.min(MAX_HOLD, Math.round((chars / freeChars) * remainingMs)));
     });
 
-    // Clamp到合理范围
-    const clamped = rawHolds.map(h => Math.max(MIN_HOLD, Math.min(MAX_HOLD, h)));
-    const clampedTotal = clamped.reduce((a, b) => a + b, 0);
-
-    // 二次归一化，确保总时长精确匹配可用时长
-    if (clampedTotal > 0) {
-      return clamped.map(h => Math.round((h / clampedTotal) * availableMs));
+    // 归一化非显式行使其总和匹配剩余时间
+    const rawFreeTotal = raw.reduce((s, h, i) => s + (hasHold[i] ? 0 : h), 0);
+    if (rawFreeTotal > 0) {
+      raw = raw.map((h, i) => {
+        if (hasHold[i]) return h;
+        return Math.round((h / rawFreeTotal) * remainingMs);
+      });
     }
-    return rawHolds;
+
+    return raw;
+  },
+
+  // ==================== 电影转场：图片渐隐 + 下场景图片从下往上滑入 ====================
+  async _cinematicTransition(fromScene, toScene) {
+    console.log('[CINEMATIC] start from=%s to=%s', fromScene, toScene);
+    const stage = document.getElementById("stage");
+    const mediaLayer = document.getElementById("mediaLayer");
+    if (!stage || !mediaLayer) {
+      console.log('[CINEMATIC] ABORT: stage=%s mediaLayer=%s', !!stage, !!mediaLayer);
+      return;
+    }
+    console.log('[CINEMATIC] preloading images...');
+
+    // 预加载
+    const preload = (src) => new Promise(resolve => {
+      const img = new Image();
+      img.onload = img.onerror = resolve;
+      img.src = src;
+    });
+    await Promise.all([
+      preload(`assets/images/${fromScene}/img_04.png`),
+      preload(`assets/images/${toScene}/img_01.png`)
+    ]);
+    console.log('[CINEMATIC] images loaded, starting animation');
+
+    // 旧图：全屏显示（在黑屏遮罩之上）
+    const fromImg = document.createElement("img");
+    fromImg.src = `assets/images/${fromScene}/img_04.png`;
+    fromImg.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;object-fit:cover;z-index:9990;pointer-events:none;";
+    document.body.appendChild(fromImg);
+
+    // 新图：从屏幕下方 100% 处开始（完全不可见）
+    const toImg = document.createElement("img");
+    toImg.src = `assets/images/${toScene}/img_01.png`;
+    toImg.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;object-fit:cover;z-index:9991;pointer-events:none;transform:translateY(100%);transition:transform 4s cubic-bezier(0.22,1,0.36,1);";
+    document.body.appendChild(toImg);
+
+    await this._delay(100);
+
+    // 动画：旧图淡出，新图从下往上滑动覆盖
+    fromImg.style.transition = "opacity 2.5s ease-out";
+    fromImg.style.opacity = "0";
+    toImg.style.transform = "translateY(0)";
+
+    await this._delay(4200);
+    console.log('[CINEMATIC] animation complete, moving images');
+
+    // 新图滑入到位后，从 body 移到 mediaLayer 驻留
+    toImg.style.position = "absolute";
+    toImg.style.width = "100%";
+    toImg.style.height = "100%";
+    toImg.style.zIndex = "";
+    toImg.classList.add("bg-main", "active");
+    mediaLayer.appendChild(toImg);
+    
+    // 清理旧图
+    fromImg.remove();
+    
+    this._cinematicReady = true;
   },
 
   // ==================== 工具 ====================
   _delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+  },
+
+  // 场景内行间延迟：受速度倍率影响
+  _sceneDelay(ms) {
+    return new Promise(resolve => setTimeout(resolve, Math.max(50, Math.round(ms / this.textSpeed))));
+  },
+
+  // ==================== 速度倍率 ====================
+  setTextSpeed(speed) {
+    this.textSpeed = Math.max(0.5, Math.min(2.0, speed));
+    SyncLog.speedChange(this.textSpeed);  // ★ 诊断日志
+    if (AudioManager._narrationAudio) {
+      AudioManager._narrationAudio.playbackRate = this.textSpeed;
+    }
+    AudioManager._concurrentAudios.forEach(audio => {
+      audio.playbackRate = this.textSpeed;
+    });
+    // ★ 立即同步绑定模式的当前旁白音频
+    if (this._boundAudio && !this._boundAudio.paused) {
+      this._boundAudio.playbackRate = this.textSpeed;
+    }
+    // ★ 同步场景级BGM/环境音轨
+    if (this._sceneAudioTracks) {
+      this._sceneAudioTracks.forEach(a => {
+        if (a && !a.paused) a.playbackRate = this.textSpeed;
+      });
+    }
+    const stage = document.getElementById("stage");
+    if (stage) {
+      stage.style.setProperty("--img-fade", `${(0.8 / this.textSpeed).toFixed(2)}s`);
+    }
+  },
+
+  // ==================== 浮动设置面板 ====================
+  _showFloatPanel(fromStart = false) {
+    this.paused = true;
+    this._floatPanelFromStart = fromStart;
+    const panel = document.getElementById("pauseMenu");
+    if (panel) panel.classList.add("active");
+    // 从开始画面打开时隐藏"返回主页"按钮
+    const restartBtn = document.getElementById("pauseRestart");
+    if (restartBtn) restartBtn.style.display = fromStart ? "none" : "";
+    // 同步当前设置值到UI
+    this._syncFloatPanelUI();
+  },
+
+  _hideFloatPanel() {
+    this.paused = false;
+    const panel = document.getElementById("pauseMenu");
+    if (panel) panel.classList.remove("active");
+  },
+
+  _syncFloatPanelUI() {
+    const volMap = {
+      master:  { input: "fpMasterVol",  val: "fpMasterVal"  },
+      bgm:     { input: "fpBgmVol",     val: "fpBgmVal"     },
+      ambient: { input: "fpAmbientVol", val: "fpAmbientVal" },
+      sfx:     { input: "fpSfxVol",     val: "fpSfxVal"     },
+      voice:   { input: "fpVoiceVol",   val: "fpVoiceVal"   },
+    };
+    Object.entries(volMap).forEach(([type, { input, val }]) => {
+      const el = document.getElementById(input);
+      const valEl = document.getElementById(val);
+      const v = Math.round((AudioManager._volume[type] || 0) * 100);
+      if (el) el.value = v;
+      if (valEl) valEl.textContent = `${v}%`;
+    });
+    // 速度
+    const speedEl = document.getElementById("fpSpeed");
+    const speedVal = document.getElementById("fpSpeedVal");
+    if (speedEl) speedEl.value = Math.round(this.textSpeed * 100);
+    if (speedVal) speedVal.textContent = `${this.textSpeed.toFixed(1)}x`;
+    // HUD
+    const hudBtn = document.getElementById("fpHudToggle");
+    if (hudBtn) hudBtn.textContent = this.hudVisible ? "显示中" : "已隐藏";
+  },
+
+  // ==================== 设置持久化 ====================
+  _saveSetting(key, value) {
+    try {
+      localStorage.setItem(`aed_setting_${key}`, JSON.stringify(value));
+    } catch (e) {}
+  },
+
+  _loadSettings() {
+    try {
+      // 音量
+      const volTypes = ["master", "bgm", "ambient", "sfx", "voice"];
+      volTypes.forEach(type => {
+        const saved = localStorage.getItem(`aed_setting_vol_${type}`);
+        if (saved !== null) {
+          const val = JSON.parse(saved);
+          AudioManager.setVolume(type, val);
+        }
+      });
+      // 速度
+      const savedSpeed = localStorage.getItem("aed_setting_textSpeed");
+      if (savedSpeed !== null) {
+        this.setTextSpeed(JSON.parse(savedSpeed));
+      }
+      // ★ 同步速度滑块UI，防止显示值与实际速度不一致
+      const speedEl = document.getElementById("fpSpeed");
+      const speedVal = document.getElementById("fpSpeedVal");
+      if (speedEl) speedEl.value = Math.round(this.textSpeed * 100);
+      if (speedVal) speedVal.textContent = `${this.textSpeed.toFixed(1)}x`;
+      // HUD
+      const savedHud = localStorage.getItem("aed_setting_hudVisible");
+      if (savedHud !== null) {
+        this.hudVisible = JSON.parse(savedHud);
+        const hud = document.getElementById("hud");
+        if (hud) hud.className = this.hudVisible ? "" : "hidden";
+      }
+    } catch (e) {}
   }
 };
 

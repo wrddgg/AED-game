@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>生命守护者</title>
-<link rel="stylesheet" href="css/style.css?v=20260614-2">
+<link rel="stylesheet" href="css/style.css?v=20260620a">
 <style>
 /* ========== CPR Flash animation keyframe (in HTML to avoid CSP issues) ========== */
 @keyframes cprFlashAnim {
@@ -120,13 +120,67 @@
   <!-- 导航提示 -->
   <div id="navHint">继续</div>
 
-  <!-- 暂停菜单 -->
+  <!-- 浮动设置面板（ESC打开，小窗口悬浮） -->
   <section id="pauseMenu">
-    <div class="pause-menu-title">暂停</div>
-    <button class="pause-menu-btn" id="pauseResume">继续</button>
-    <button class="pause-menu-btn" id="pauseRestart">返回主页</button>
-    <button class="pause-menu-btn" id="pauseToggleHUD">显示/隐藏 HUD</button>
-    <button class="pause-menu-btn" id="pauseSave">保存进度</button>
+    <div class="float-panel-inner">
+      <div class="float-panel-header">
+        <span class="float-panel-title">设置</span>
+        <button class="float-panel-close" id="pauseResume" title="关闭 (ESC)">✕</button>
+      </div>
+      <div class="float-panel-body">
+      <!-- 音频 -->
+      <div class="fp-section">
+        <div class="fp-section-label">音频</div>
+        <div class="fp-row">
+          <label>主音量</label>
+          <input type="range" id="fpMasterVol" min="0" max="100" value="80">
+          <span class="fp-val" id="fpMasterVal">80%</span>
+        </div>
+        <div class="fp-row">
+          <label>背景音乐</label>
+          <input type="range" id="fpBgmVol" min="0" max="100" value="60">
+          <span class="fp-val" id="fpBgmVal">60%</span>
+        </div>
+        <div class="fp-row">
+          <label>环境音</label>
+          <input type="range" id="fpAmbientVol" min="0" max="100" value="50">
+          <span class="fp-val" id="fpAmbientVal">50%</span>
+        </div>
+        <div class="fp-row">
+          <label>音效</label>
+          <input type="range" id="fpSfxVol" min="0" max="100" value="80">
+          <span class="fp-val" id="fpSfxVal">80%</span>
+        </div>
+        <div class="fp-row">
+          <label>语音</label>
+          <input type="range" id="fpVoiceVol" min="0" max="100" value="100">
+          <span class="fp-val" id="fpVoiceVal">100%</span>
+        </div>
+      </div>
+      <!-- 速度 -->
+      <div class="fp-section">
+        <div class="fp-section-label">播放速度</div>
+        <div class="fp-row">
+          <label>字幕/音频</label>
+          <input type="range" id="fpSpeed" min="50" max="200" step="10" value="100">
+          <span class="fp-val" id="fpSpeedVal">1.0x</span>
+        </div>
+      </div>
+      <!-- 显示 -->
+      <div class="fp-section">
+        <div class="fp-section-label">显示</div>
+        <div class="fp-row fp-toggle-row">
+          <label>HUD状态栏</label>
+          <button class="fp-toggle" id="fpHudToggle">显示中</button>
+        </div>
+      </div>
+      <!-- 操作 -->
+      <div class="fp-section fp-actions">
+        <button class="fp-btn" id="pauseSave">保存进度</button>
+        <button class="fp-btn" id="pauseRestart">返回主页</button>
+      </div>
+    </div>
+    </div>
   </section>
 
   <!-- 开始画面 -->
@@ -146,8 +200,8 @@
     </div>
   </section>
 
-  <!-- 音量控制界面 -->
-  <section id="settingsPanel" class="settings-panel">
+  <!-- 音量控制界面（保留兼容，实际使用浮动面板） -->
+  <section id="settingsPanel" class="settings-panel" style="display:none !important;">
     <div class="settings-content">
       <h2>音频设置</h2>
       <div class="settings-group">
@@ -237,13 +291,14 @@
 <!-- ==============================
      JS 模块加载（按依赖顺序）
      ============================== -->
-<script src="js/state.js?v=20260614-2"></script>
-<script src="js/scenes.js?v=20260614-2"></script>
-<script src="js/audio.js?v=20260614-2"></script>
-<script src="js/achievements.js?v=20260614-2"></script>
-<script src="js/leaderboard.js?v=20260614-2"></script>
-<script src="js/interactions.js?v=20260614-2"></script>
-<script src="js/game.js?v=20260614-2"></script>
+<script src="js/debug-log.js?v=3"></script>
+<script src="js/state.js?v=20260620a"></script>
+<script src="js/scenes.js?v=20260620a"></script>
+<script src="js/audio.js?v=20260620a"></script>
+<script src="js/achievements.js?v=20260620a"></script>
+<script src="js/leaderboard.js?v=20260620a"></script>
+<script src="js/interactions.js?v=20260620a"></script>
+<script src="js/game.js?v=20260620a"></script>
 
 <script>
 // 初始化所有系统
@@ -266,12 +321,9 @@ document.addEventListener('DOMContentLoaded', () => {
     e.stopPropagation();
     e.preventDefault();
 
-    // 延迟检查并显示设置面板
+    // 从开始画面打开浮动设置面板
     setTimeout(() => {
-      const panel = document.getElementById('settingsPanel');
-      if (panel && !panel.classList.contains('active')) {
-        panel.classList.add('active');
-      }
+      Game._showFloatPanel(true); // true = 从开始画面打开（隐藏"返回主页"）
     }, 100);
   });
 
@@ -307,7 +359,9 @@ document.addEventListener('DOMContentLoaded', () => {
     startHint.addEventListener('click', (e) => {
       e.stopPropagation();
       e.preventDefault();
-      console.log('Start button clicked');
+
+      // 确保浮动面板关闭（防止残留）
+      Game._hideFloatPanel();
 
       // 隐藏首页
       const startScreen = document.getElementById('startScreen');
@@ -333,31 +387,67 @@ document.addEventListener('DOMContentLoaded', () => {
         Game.goToScene('prologue_title');
       }
 
-      // 启动背景音效
+      // 启动背景音效（降低雨声音量）
       setTimeout(() => {
-        AudioManager.startBackgroundAmbience(0.25);
+        AudioManager.startBackgroundAmbience(0.12);
       }, 500);
     });
   }
 
-  // 音量滑块
-  const sliders = {
-    master: document.getElementById('masterVolume'),
-    bgm: document.getElementById('bgmVolume'),
-    ambient: document.getElementById('ambientVolume'),
-    sfx: document.getElementById('sfxVolume')
+  // 浮动设置面板：音量/速度滑块绑定
+  const fpSliders = {
+    master:  { input: document.getElementById('fpMasterVol'),  val: document.getElementById('fpMasterVal')  },
+    bgm:     { input: document.getElementById('fpBgmVol'),     val: document.getElementById('fpBgmVal')     },
+    ambient: { input: document.getElementById('fpAmbientVol'), val: document.getElementById('fpAmbientVal') },
+    sfx:     { input: document.getElementById('fpSfxVol'),     val: document.getElementById('fpSfxVal')     },
+    voice:   { input: document.getElementById('fpVoiceVol'),   val: document.getElementById('fpVoiceVal')   },
   };
 
-  Object.entries(sliders).forEach(([type, slider]) => {
-    if (!slider) return;
-    const valueEl = document.getElementById(`${type}VolumeValue`);
-
-    slider.addEventListener('input', (e) => {
+  Object.entries(fpSliders).forEach(([type, { input, val }]) => {
+    if (!input) return;
+    input.addEventListener('input', (e) => {
       const value = parseInt(e.target.value) / 100;
       AudioManager.setVolume(type, value);
-      if (valueEl) valueEl.textContent = `${Math.round(value * 100)}%`;
+      if (val) val.textContent = `${Math.round(value * 100)}%`;
+      // 持久化
+      Game._saveSetting(`vol_${type}`, value);
     });
   });
+
+  // 速度滑块
+  const fpSpeed = document.getElementById('fpSpeed');
+  const fpSpeedVal = document.getElementById('fpSpeedVal');
+  if (fpSpeed) {
+    fpSpeed.addEventListener('input', (e) => {
+      const speed = parseInt(e.target.value) / 100;
+      Game.setTextSpeed(speed);
+      if (fpSpeedVal) fpSpeedVal.textContent = `${speed.toFixed(1)}x`;
+      Game._saveSetting('textSpeed', speed);
+    });
+  }
+
+  // HUD开关
+  const fpHudToggle = document.getElementById('fpHudToggle');
+  if (fpHudToggle) {
+    fpHudToggle.addEventListener('click', () => {
+      Game.toggleHUD();
+      fpHudToggle.textContent = Game.hudVisible ? '显示中' : '已隐藏';
+      Game._saveSetting('hudVisible', Game.hudVisible);
+    });
+  }
+
+  // 浮动面板内按钮
+  document.getElementById('pauseSave')?.addEventListener('click', () => {
+    Game._saveProgress();
+    Game._showPauseMessage('进度已保存');
+  });
+  document.getElementById('pauseRestart')?.addEventListener('click', () => {
+    Game._hideFloatPanel();
+    Game._returnToMainMenu();
+  });
+
+  // 从localStorage恢复设置
+  Game._loadSettings();
 
   // 开始画面背景点击（不处理，只通过开始游戏按钮触发）
 });

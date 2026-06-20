@@ -1,15 +1,66 @@
-# 图片素材（AI生成，不上传）
+# ============ 素材大文件（本地保留，不上传）============
+
+# 原始旁白音频
+audio/
+split_output/
+
+# demo 下的全部素材二进制
 demo/assets/images/**/*.png
 demo/assets/images/**/*.jpg
 demo/assets/images/**/*.jpeg
 demo/assets/images/**/*.webp
-
-# 视频素材
 demo/assets/videos/**/*.mp4
+demo/assets/videos/**/*.webm
+demo/assets/audio/**/*.mp3
+demo/assets/audio/**/*.wav
+demo/assets/audio/**/*.ogg
+demo/assets/voices/**/*.wav
+demo/assets/voices/**/*.mp3
 
-# 压缩包
-*.rar
+# 标题图等根素材（保留 prompts.md / main.md 等文档）
+*.mp4
+!demo/assets/videos/opening.mp4
 
-# 临时脚本
+# 字体文件（UI 重制后单独决定是否上传）
+demo/assets/fonts/*.woff2
+demo/assets/fonts/*.woff
+demo/assets/fonts/*.ttf
+
+# ============ 临时文件 ============
 _*.js
 _*.md
+_*.json
+_*.log
+_*.ps1
+_*.bat
+
+# tool 下的运行产物
+tool/_*.json
+tool/_*.log
+tool/*.log
+tool/gen_output.log
+tool/video_prompts/
+
+# ============ 系统/编辑器 ============
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*~
+
+# ============ Python ============
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# ============ Node ============
+node_modules/
+npm-debug.log*
+
+# ============ 压缩包 ============
+*.rar
+*.zip
+*.7z

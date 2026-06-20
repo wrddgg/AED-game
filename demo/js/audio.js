@@ -9,7 +9,7 @@ const AudioManager = {
   _muted: false,
   _volume: { master: 0.8, bgm: 0.6, ambient: 0.5, sfx: 0.8, voice: 1.0 },
   _activeSfx: [],
-  _supportedAudioExts: [".mp3", ".wav", ".ogg"],
+  _supportedAudioExts: [".wav", ".mp3", ".ogg"],
 
   init() {
     this.stopAll();
@@ -147,10 +147,25 @@ const AudioManager = {
       this._volume[type] = Math.max(0, Math.min(1, value));
       this._applyVolume(this._bgm, "bgm", 1);
       this._applyVolume(this._ambient, "ambient", 1);
+      this._applyVolume(this._narrationAudio, "voice", 1);
       this._activeSfx.forEach(audio => {
         const group = audio.dataset?.group || "sfx";
         this._applyVolume(audio, group, 1);
       });
+      this._concurrentAudios.forEach(audio => {
+        this._applyVolume(audio, "voice", 1);
+      });
+      // ★ 同步 bound 模式音频
+      if (Game._boundAudio && !Game._boundAudio.paused) {
+        this._applyVolume(Game._boundAudio, "voice", 1);
+      }
+      if (Game._sceneAudioTracks) {
+        Game._sceneAudioTracks.forEach(a => {
+          if (a && !a.paused) {
+            this._applyVolume(a, a.dataset?.group || "sfx", 1);
+          }
+        });
+      }
     }
   },
 
@@ -158,10 +173,23 @@ const AudioManager = {
     this._muted = !this._muted;
     this._applyVolume(this._bgm, "bgm", 1);
     this._applyVolume(this._ambient, "ambient", 1);
+    this._applyVolume(this._narrationAudio, "voice", 1);
     this._activeSfx.forEach(audio => {
       const group = audio.dataset?.group || "sfx";
       this._applyVolume(audio, group, 1);
     });
+    // 同步并发旁白音轨 + bound 模式音频
+    this._concurrentAudios.forEach(audio => {
+      this._applyVolume(audio, "voice", 1);
+    });
+    if (Game._boundAudio && !Game._boundAudio.paused) {
+      this._applyVolume(Game._boundAudio, "voice", 1);
+    }
+    if (Game._sceneAudioTracks) {
+      Game._sceneAudioTracks.forEach(a => {
+        if (a && !a.paused) this._applyVolume(a, a.dataset?.group || "sfx", 1);
+      });
+    }
     return this._muted;
   },
 
@@ -565,9 +593,15 @@ const AudioManager = {
   _narrationCallId: 0,       // 调用序号，阻止旧回调污染
   _narrationTimeout: null,   // fallback计时器句柄
   _narrationResolve: null,   // 当前pending的Promise resolve
+  _concurrentAudios: [],     // 并发旁白音轨池
 
+  /**
+   * 播放旁白音频（单轨模式，会停止上一个旁白）
+   * @param {string} audioPath 音频路径
+   * @returns {Promise<Audio|null>}
+   */
   playNarration(audioPath) {
-    // 彻底停止并销毁上一段旁白
+    // 彻底停止并销毁上一段旁白（不停止并发音轨）
     this.stopNarration();
     const callId = ++this._narrationCallId;
 
@@ -612,6 +646,14 @@ const AudioManager = {
       audio.addEventListener("loadedmetadata", onMeta);
       audio.addEventListener("error", onError);
 
+      // 应用全局播放速率（速度倍率）
+      if (Game && Game.textSpeed) {
+        audio.playbackRate = Game.textSpeed;
+        if (window.SyncLog && SyncLog._enabled) {
+          SyncLog.log('audio-init', { scene: Game.currentSceneId, rate: Game.textSpeed, text: audioPath.slice(-30), note: `playNarration playbackRate=${Game.textSpeed}` });
+        }
+      }
+
       // 安全阀：2秒后强制触发
       this._narrationTimeout = setTimeout(() => {
         if (callId !== this._narrationCallId) return;
@@ -625,7 +667,67 @@ const AudioManager = {
     });
   },
 
-  /** 彻底停止并销毁旁白音频：移除src、终止加载、使旧Promise失效 */
+  /**
+   * 播放旁白音频（并发模式，不打断其他音轨）
+   * 适合背景人声、环境语音等需要叠加播放的场景
+   * @param {string} audioPath 音频路径
+   * @returns {Promise<Audio|null>}
+   */
+  playNarrationConcurrent(audioPath) {
+    const callId = ++this._narrationCallId;
+
+    return new Promise((resolve) => {
+      const audio = new Audio(audioPath);
+      audio.preload = "auto";
+      this._applyVolume(audio, "voice", 1.0);
+      this._concurrentAudios.push(audio);
+
+      let resolved = false;
+      const done = (result) => {
+        if (resolved || callId !== this._narrationCallId) return;
+        resolved = true;
+        audio.removeEventListener("canplaythrough", onCanPlay);
+        audio.removeEventListener("loadedmetadata", onMeta);
+        audio.removeEventListener("error", onError);
+        audio.removeEventListener("ended", onEnded);
+        resolve(result);
+      };
+
+      const onCanPlay = () => {
+        audio.play().catch(() => {});
+        done(audio);
+      };
+      const onMeta = () => {
+        if (!resolved) {
+          audio.play().catch(() => {});
+          done(audio);
+        }
+      };
+      const onError = () => {
+        console.warn("[Audio] 并发旁白音频加载失败:", audioPath);
+        this._concurrentAudios = this._concurrentAudios.filter(a => a !== audio);
+        done(null);
+      };
+      const onEnded = () => {
+        // 播放完毕后自动从并发池中清理
+        this._concurrentAudios = this._concurrentAudios.filter(a => a !== audio);
+      };
+
+      audio.addEventListener("canplaythrough", onCanPlay);
+      audio.addEventListener("loadedmetadata", onMeta);
+      audio.addEventListener("error", onError);
+      audio.addEventListener("ended", onEnded);
+
+      // 应用全局播放速率
+      if (Game && Game.textSpeed) {
+        audio.playbackRate = Game.textSpeed;
+      }
+
+      audio.load();
+    });
+  },
+
+  /** 彻底停止并销毁所有旁白音频（包括并发音轨） */
   stopNarration() {
     this._clearNarrationTimeout();
     // 使旧Promise的resolve失效
@@ -645,6 +747,36 @@ const AudioManager = {
     }
     // 递增序号，使所有旧回调失效
     this._narrationCallId++;
+    // 停止所有并发音轨
+    this._stopConcurrentNarrations();
+  },
+
+  /** 停止所有并发旁白音轨 */
+  _stopConcurrentNarrations() {
+    this._concurrentAudios.forEach(audio => {
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+        audio.removeAttribute("src");
+        audio.load();
+      } catch (e) {}
+    });
+    this._concurrentAudios = [];
+  },
+
+  /**
+   * 停止指定的并发旁白音轨
+   * @param {Audio} audio 要停止的音频对象
+   */
+  stopConcurrentNarration(audio) {
+    if (!audio) return;
+    try {
+      audio.pause();
+      audio.currentTime = 0;
+      audio.removeAttribute("src");
+      audio.load();
+    } catch (e) {}
+    this._concurrentAudios = this._concurrentAudios.filter(a => a !== audio);
   },
 
   /** 清理fallback超时计时器 */
